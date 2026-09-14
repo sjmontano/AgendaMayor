@@ -6,6 +6,8 @@ import { Filtros } from "@/components/vitrina/filtros";
  * Vitrina /proyectos — Vista (capa de Presentación).
  * Filtros vía query string (URL compartible, HU-07). Consume /api/*.
  */
+export const dynamic = "force-dynamic";
+
 export default async function ProyectosPage({
   searchParams,
 }: {

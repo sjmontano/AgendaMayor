@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseServer();
     let query = supabase
       .from("proyecto")
-      .select("*, autor:usuario!inner(username, nombre, apellido)")
+      .select("*, autor:usuario!proyecto_autor_id_fkey(username, nombre, apellido)")
       .eq("estado", estado)
       .order("fecha_registro", { ascending: false });
 

@@ -30,7 +30,7 @@ export async function listarPublicados(filtros: ProyectoQueryDTO): Promise<{ dat
   const supabase = getSupabaseServer();
   let query = supabase
     .from('proyecto')
-    .select('*, autor:usuario!inner(username, nombre, apellido, avatar)', { count: 'exact' })
+    .select('*, autor:usuario!proyecto_autor_id_fkey(username, nombre, apellido, avatar)', { count: 'exact' })
     .eq('estado', 'PUBLICADO')
     .order('fecha_registro', { ascending: false });
 
@@ -55,7 +55,7 @@ export async function buscarPorId(id: number): Promise<ProyectoRow | null> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('proyecto')
-    .select('*, autor:usuario!inner(username, nombre, apellido, avatar)')
+    .select('*, autor:usuario!proyecto_autor_id_fkey(username, nombre, apellido, avatar)')
     .eq('id_proyecto', id)
     .single();
 

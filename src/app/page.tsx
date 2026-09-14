@@ -10,6 +10,7 @@ import { FACULTADES } from "@/lib/facultades";
  * Landing: hero rico + stats + cómo funciona + facultades + destacados + eventos + avisos + CTA.
  * Consume la API propia (/api/*), nunca el Modelo directo.
  */
+export const dynamic = "force-dynamic";
 interface AvisoData {
   id_aviso: number;
   titulo: string;

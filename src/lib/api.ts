@@ -18,8 +18,26 @@ export class ApiHttpError extends Error {
   }
 }
 
+async function baseUrl(): Promise<string> {
+  if (typeof window !== "undefined") return "";
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  try {
+    const { headers } = await import("next/headers");
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    if (host) return `${proto}://${host}`;
+  } catch {
+    // fuera de request scope (build) — fallback a localhost
+  }
+  return "http://localhost:3000";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { cache: "no-store", ...init });
+  const base = await baseUrl();
+  const url = path.startsWith("/") ? `${base}${path}` : path;
+  const res = await fetch(url, { cache: "no-store", ...init });
   const body = (await res.json()) as Envelope<T>;
   if (body.error) {
     throw new ApiHttpError(body.error.message, res.status);

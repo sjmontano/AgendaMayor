@@ -8,6 +8,7 @@ import { EventoRssCard, type EventoRssData } from "@/components/eventos/evento-r
  * Muestra eventos de la BD + eventos en vivo del RSS de UNIMAYOR.
  * Si la BD no tiene datos, muestra solo los RSS (funciona sin Supabase).
  */
+export const dynamic = "force-dynamic";
 
 async function fetchDbEvents(): Promise<EventoCardData[]> {
   try {
