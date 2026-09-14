@@ -3,18 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
-import { FACULTADES } from "@/lib/facultades";
+import { FACULTADES, facultadProgramas } from "@/lib/facultades";
 import { LoadingButton } from "@/components/ui/skeleton";
 
 /**
  * Formulario publicar proyecto — Vista (capa de Presentación).
  * POST /api/proyectos → el Service lo deja en EN_REVISION (HU-06).
+ * Facultad → Programa: el select de programas se actualiza automáticamente
+ * al cambiar de facultad (dependencia cliente).
  */
 export function PublicarForm() {
   const router = useRouter();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tipo, setTipo] = useState("COMUNIDAD");
+  const [facultad, setFacultad] = useState("");
+  const [programa, setPrograma] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,8 +33,8 @@ export function PublicarForm() {
       const payload: Record<string, unknown> = {
         titulo: String(fd.get("titulo")),
         descripcion: String(fd.get("descripcion")),
-        facultad: String(fd.get("facultad")),
-        programa: String(fd.get("programa")),
+        facultad: facultad || String(fd.get("facultad")),
+        programa: programa || String(fd.get("programa")),
         tipo,
         fotos,
       };
@@ -65,7 +69,22 @@ export function PublicarForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelCls}>
           Facultad
-          <select name="facultad" required className={inputCls} defaultValue="">
+          <select
+            name="facultad"
+            required
+            className={inputCls}
+            defaultValue={facultad}
+            onChange={(e) => {
+              setFacultad(e.target.value);
+              // setear programa por defecto de la facultad elegida
+              const opciones = facultadProgramas[e.target.value as keyof typeof facultadProgramas];
+              if (opciones && opciones.length > 0) {
+                setPrograma(opciones[0]);
+              } else {
+                setPrograma("");
+              }
+            }}
+          >
             <option value="">Seleccionar…</option>
             {FACULTADES.map((f) => (
               <option key={f.slug} value={f.nombre}>{f.nombre}</option>
@@ -73,39 +92,40 @@ export function PublicarForm() {
           </select>
         </label>
         <label className={labelCls}>
-          Programa <input name="programa" required maxLength={100} className={inputCls} />
+          Programa
+          <select
+            name="programa"
+            required
+            className={inputCls}
+            defaultValue={programa}
+          >
+            <option value="">Seleccionar…</option>
+            {facultadProgramas[facultad as keyof typeof facultadProgramas]?.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            )) || []}
+          </select>
         </label>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelCls}>
-          Tipo
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={inputCls}>
-            <option value="COMUNIDAD">Comunidad</option>
-            <option value="EAFI">EAFI</option>
-            <option value="INSTITUCIONAL">Institucional</option>
-          </select>
+          <input
+            name="consentimiento"
+            type="checkbox"
+            className="mt-1 size-4 accent-[#004884]"
+          />
+          Acepto el tratamiento de mis datos personales (Ley 1581/2012).
         </label>
-        {tipo === "EAFI" && (
-          <label className={labelCls}>
-            ID evento origen
-            <input name="eventoOrigenId" type="number" min={1} required className={inputCls} />
-          </label>
-        )}
       </div>
-      <label className={labelCls}>
-        Fotos (URLs separadas por coma, máx 10)
-        <input name="fotos" placeholder="https://…" className={inputCls} />
-      </label>
       {error && (
-        <p role="alert" className="rounded-[10px] border-2 border-[#DC2626] bg-red-50 p-3 text-sm font-semibold text-[#DC2626]">
+        <p role="alert" className="rounded-[10x] border-2 border-[#DC2626] bg-red-50 p-3 text-sm font-semibold text-[#DC2626]">
           {error}
         </p>
       )}
       {cargando ? (
-        <LoadingButton label="Publicando" />
+        <LoadingButton label="Publicando proyecto" />
       ) : (
         <button type="submit" className="w-full border-2 border-[#004884] bg-[#004884] px-6 py-3 text-xs font-bold tracking-widest text-white uppercase shadow-[4px_4px_0_#333030] hover:bg-transparent hover:text-[#004884]">
-          Enviar a revisión
+          Publicar proyecto
         </button>
       )}
     </form>
