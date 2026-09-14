@@ -1,14 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { apiGet } from "@/lib/api";
-import { ProyectoCard, type ProyectoCardData } from "@/components/vitrina/proyecto-card";
-import { EventoCard, type EventoCardData } from "@/components/eventos/evento-card";
+import { listarPublicados } from "@/modelo/proyectos/proyecto.service";
+import { listarActivos as listarEventos } from "@/modelo/eventos/evento.repository";
+import { listarActivos as listarAvisos } from "@/modelo/avisos/aviso.repository";
+import { ProyectoCard } from "@/components/vitrina/proyecto-card";
+import { EventoCard } from "@/components/eventos/evento-card";
 import { FACULTADES } from "@/lib/facultades";
 
 /**
  * Home — Vista (capa de Presentación).
  * Landing: hero rico + stats + cómo funciona + facultades + destacados + eventos + avisos + CTA.
- * Consume la API propia (/api/*), nunca el Modelo directo.
+ * Server Component: lee el Modelo directo (sin self-fetch HTTP, que falla en Vercel).
+ * Los Client Components siguen usando /api/*.
  */
 export const dynamic = "force-dynamic";
 interface AvisoData {
@@ -37,11 +40,15 @@ const PASOS = [
 ];
 
 export default async function Home() {
-  const [proyectos, eventos, avisos] = await Promise.all([
-    apiGet<{ data: ProyectoCardData[]; total: number }>("/api/proyectos?limit=3").catch(() => ({ data: [], total: 0 })),
-    apiGet<{ data: EventoCardData[]; total: number }>("/api/eventos?limit=3").catch(() => ({ data: [], total: 0 })),
-    apiGet<AvisoData[]>("/api/avisos").catch(() => []),
+  const [proyectosRaw, eventos, avisos] = await Promise.all([
+    listarPublicados({ page: 1, limit: 3 }).catch(() => ({ data: [], total: 0 })),
+    listarEventos({ page: 1, limit: 3 }).catch(() => ({ data: [], total: 0 })),
+    listarAvisos().catch(() => []),
   ]);
+  const proyectos = {
+    ...proyectosRaw,
+    data: proyectosRaw.data.map((p) => ({ ...p, autor: p.autor ?? null })),
+  };
 
   const stats = [
     { valor: `${proyectos.total}`, etiqueta: "Proyectos publicados" },

@@ -1,20 +1,19 @@
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
-import { EventoCard, type EventoCardData } from "@/components/eventos/evento-card";
+import { listarActivos as listarEventosDb } from "@/modelo/eventos/evento.repository";
+import { EventoCard } from "@/components/eventos/evento-card";
 import { EventoRssCard, type EventoRssData } from "@/components/eventos/evento-rss-card";
+import { obtenerEventosUnimayor } from "@/lib/integraciones/unimayor-rss";
 
 /**
  * Cartelera /eventos — Vista (capa de Presentación).
  * Muestra eventos de la BD + eventos en vivo del RSS de UNIMAYOR.
- * Si la BD no tiene datos, muestra solo los RSS (funciona sin Supabase).
+ * Server Component: BD + RSS directo (sin self-fetch HTTP, que falla en Vercel).
  */
 export const dynamic = "force-dynamic";
 
-async function fetchDbEvents(): Promise<EventoCardData[]> {
+async function fetchDbEvents() {
   try {
-    const { data } = await apiGet<{ data: EventoCardData[]; total: number }>(
-      "/api/eventos?limit=24"
-    );
+    const { data } = await listarEventosDb({ page: 1, limit: 24 });
     return data ?? [];
   } catch {
     return [];
@@ -23,10 +22,8 @@ async function fetchDbEvents(): Promise<EventoCardData[]> {
 
 async function fetchRssEvents(): Promise<EventoRssData[]> {
   try {
-    const { data } = await apiGet<{ data: EventoRssData[] }>(
-      "/api/eventos/rss"
-    );
-    return (data ?? []).map((e, i) => ({
+    const rss = await obtenerEventosUnimayor();
+    return rss.map((e, i) => ({
       ...e,
       id_rss: i,
     }));

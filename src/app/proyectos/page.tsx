@@ -1,10 +1,12 @@
-import { apiGet } from "@/lib/api";
-import { ProyectoCard, type ProyectoCardData } from "@/components/vitrina/proyecto-card";
+import { listarPublicados } from "@/modelo/proyectos/proyecto.service";
+import { ProyectoQuerySchema } from "@/modelo/proyectos/proyecto.dto";
+import { ProyectoCard } from "@/components/vitrina/proyecto-card";
 import { Filtros } from "@/components/vitrina/filtros";
 
 /**
  * Vitrina /proyectos — Vista (capa de Presentación).
- * Filtros vía query string (URL compartible, HU-07). Consume /api/*.
+ * Filtros vía query string (URL compartible, HU-07).
+ * Server Component: lee el Modelo directo (sin self-fetch HTTP, que falla en Vercel).
  */
 export const dynamic = "force-dynamic";
 
@@ -14,15 +16,23 @@ export default async function ProyectosPage({
   searchParams: Promise<{ facultad?: string; tipo?: string; q?: string; page?: string }>;
 }) {
   const sp = await searchParams;
+  const filtros = ProyectoQuerySchema.parse({
+    facultad: sp.facultad,
+    tipo: sp.tipo,
+    q: sp.q,
+    page: sp.page ?? "1",
+    limit: "12",
+  });
+
   const query = new URLSearchParams();
   if (sp.facultad) query.set("facultad", sp.facultad);
   if (sp.tipo) query.set("tipo", sp.tipo);
   if (sp.q) query.set("q", sp.q);
   query.set("page", sp.page ?? "1");
 
-  const { data, total } = await apiGet<{ data: ProyectoCardData[]; total: number }>(
-    `/api/proyectos?${query.toString()}`
-  ).catch(() => ({ data: [], total: 0 }));
+  const resultado = await listarPublicados(filtros).catch(() => ({ data: [], total: 0 }));
+  const data = resultado.data.map((p) => ({ ...p, autor: p.autor ?? null }));
+  const total = resultado.total;
 
   const page = Number(sp.page ?? "1");
   const hayMas = total > page * 12;
