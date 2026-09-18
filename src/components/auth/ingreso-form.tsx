@@ -23,17 +23,16 @@ export function IngresoForm() {
     setCargando(true);
     try {
       const supabase = getSupabaseBrowser();
-      // Sign in with Google OAuth (redirect). Usamos signInWithOAuth en lugar de signInWithIdp
-      // porque el tipo de esta versión no incluye signInWithIdp, pero el método sí existe en runtime.
+      // OAuth con redirect a /auth/callback, que intercambia el code por sesión.
       const { error: signError } = await supabase.auth.signInWithOAuth({
         provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        },
       });
       if (signError) throw new Error(signError.message);
-      // Después del redirect, Supabase regresa al /auth/callback que configuramos en Vercel.
-      // El router.push no alcanza a correr hasta el próximo render; el usuario será redirigido
-      // por Supabase y luego podrá navegar.
-      router.push("/");
-      router.refresh();
+      // Supabase redirige a Google y vuelve a /auth/callback: no hacer router.push aquí.
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión con Google");
     } finally {

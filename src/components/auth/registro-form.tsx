@@ -16,10 +16,12 @@ export function RegistroForm() {
   const router = useRouter();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setAviso(null);
     setCargando(true);
     try {
       const fd = new FormData(e.currentTarget);
@@ -30,8 +32,15 @@ export function RegistroForm() {
       if (!fd.get("consentimiento")) throw new Error("Debes aceptar el tratamiento de datos (Ley 1581/2012)");
 
       const supabase = getSupabaseBrowser();
-      const { error: signError } = await supabase.auth.signUp({ email, password });
+      const { data, error: signError } = await supabase.auth.signUp({ email, password });
       if (signError) throw new Error(signError.message);
+
+      // Si Supabase exige confirmar el correo, aún NO hay sesión:
+      // no llamar al API (daría 401 "Sesión no válida o expirada").
+      if (!data.session) {
+        setAviso("Cuenta creada. Revisa tu correo institucional y confirma tu cuenta para poder ingresar.");
+        return;
+      }
 
       await apiPost("/api/usuarios/registro", {
         username: String(fd.get("username")),
@@ -93,6 +102,11 @@ export function RegistroForm() {
       {error && (
         <p role="alert" className="rounded-[10px] border-2 border-[#DC2626] bg-red-50 p-3 text-sm font-semibold text-[#DC2626]">
           {error}
+        </p>
+      )}
+      {aviso && (
+        <p role="status" className="rounded-[10px] border-2 border-[#004884] bg-blue-50 p-3 text-sm font-semibold text-[#004884]">
+          {aviso}
         </p>
       )}
       {cargando ? (

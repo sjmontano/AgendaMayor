@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "Plataforma de divulgación de la Institución Universitaria Colegio Mayor del Cauca: proyectos estudiantiles, eventos y perfiles.",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const sesion = await apiGet<{ username: string }>("/api/perfil", {
     headers: await headersConSesion(),
   })
