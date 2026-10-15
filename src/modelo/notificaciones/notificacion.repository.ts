@@ -1,21 +1,17 @@
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { prisma } from "@/lib/db";
 
 /**
  * Repository de notificaciones — patrón Repository.
- * El Service notifica sin conocer Supabase.
+ * El Service notifica sin conocer la BD.
  */
 export async function crear(
   usuarioId: number,
   mensaje: string,
-  proyectoId: number
+  proyectoId: number | null
 ): Promise<void> {
-  const supabase = getSupabaseServer();
-  const { error } = await supabase.from("notificacion").insert({
-    mensaje,
-    usuario_id: usuarioId,
-    proyecto_id: proyectoId,
+  await prisma.notificacion.create({
+    data: { mensaje, usuario_id: usuarioId, proyecto_id: proyectoId },
   });
-  if (error) throw error;
 }
 
 export interface NotificacionRow {
@@ -27,23 +23,24 @@ export interface NotificacionRow {
 }
 
 export async function listarPorUsuario(usuarioId: number): Promise<NotificacionRow[]> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("notificacion")
-    .select("id_notificacion, mensaje, fecha, leida, proyecto_id")
-    .eq("usuario_id", usuarioId)
-    .order("fecha", { ascending: false })
-    .limit(20);
-  if (error) throw error;
-  return (data as NotificacionRow[]) ?? [];
+  const filas = await prisma.notificacion.findMany({
+    where: { usuario_id: usuarioId },
+    orderBy: { fecha: "desc" },
+    take: 20,
+    select: {
+      id_notificacion: true,
+      mensaje: true,
+      fecha: true,
+      leida: true,
+      proyecto_id: true,
+    },
+  });
+  return filas.map((n) => ({ ...n, fecha: n.fecha.toISOString() }));
 }
 
 export async function marcarLeida(id: number, usuarioId: number): Promise<void> {
-  const supabase = getSupabaseServer();
-  const { error } = await supabase
-    .from("notificacion")
-    .update({ leida: true })
-    .eq("id_notificacion", id)
-    .eq("usuario_id", usuarioId);
-  if (error) throw error;
+  await prisma.notificacion.updateMany({
+    where: { id_notificacion: id, usuario_id: usuarioId },
+    data: { leida: true },
+  });
 }

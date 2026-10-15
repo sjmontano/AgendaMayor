@@ -7,7 +7,7 @@ name: agenda-mayor
 # ── Descripción (máx. 350 caracteres) ──
 description: >
   Vitrina de proyectos y eventos académicos de la Institución Universitaria
-  Colegio Mayor del Cauca (Unimayor). Next.js 16 + Supabase + Tailwind CSS.
+  Colegio Mayor del Cauca (Unimayor). Next.js 16 + PostgreSQL (Neon) + Prisma + Tailwind CSS.
   Proyecto de la asignatura Arquitectura de Software.
 
 # ── Topics / Tags ──
@@ -15,7 +15,9 @@ topics:
   - nextjs
   - react
   - typescript
-  - supabase
+  - postgresql
+  - prisma
+  - neon
   - tailwindcss
   - university
   - academic-projects

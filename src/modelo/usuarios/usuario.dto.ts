@@ -26,7 +26,16 @@ export const PerfilUpdateSchema = z.object({
 
 export type PerfilUpdateDTO = z.infer<typeof PerfilUpdateSchema>;
 
+/**
+ * Registro con credenciales propias (reemplaza el signUp de Supabase Auth).
+ * La contraseña nunca se guarda en claro: se hashea con bcrypt.
+ */
 export const RegistroSchema = z.object({
+  email: z
+    .string()
+    .email('Correo inválido')
+    .refine(esCorreoInstitucional, 'Solo se permiten correos @unimayor.edu.co'),
+  password: z.string().min(8, 'La contraseña debe tener mínimo 8 caracteres').max(72),
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Solo letras, números y guion bajo'),
   nombre: z.string().min(1).max(50),
   apellido: z.string().min(1).max(50),
@@ -36,6 +45,13 @@ export const RegistroSchema = z.object({
 });
 
 export type RegistroDTO = z.infer<typeof RegistroSchema>;
+
+export const LoginSchema = z.object({
+  email: z.string().email('Correo inválido'),
+  password: z.string().min(1, 'Ingresa tu contraseña'),
+});
+
+export type LoginDTO = z.infer<typeof LoginSchema>;
 
 /** Respuesta pública de perfil (sin datos sensibles) */
 export interface PerfilPublico {

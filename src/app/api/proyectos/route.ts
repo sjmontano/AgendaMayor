@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err } from '@/lib/errors';
-import { getSesionActual } from '@/lib/supabase/auth.adapter';
-import { obtenerUsuarioPorAuthId } from '@/lib/auth';
+import { getSesionDesdeCookies } from '@/lib/sesion';
+import { obtenerUsuarioPorId } from '@/lib/auth';
 import * as proyectoService from '@/modelo/proyectos/proyecto.service';
 import { ProyectoCreateSchema, ProyectoQuerySchema } from '@/modelo/proyectos/proyecto.dto';
 
@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     const body = await request.json();
     const datos = ProyectoCreateSchema.parse(body);
     const proyecto = await proyectoService.crear(datos, usuario.id_usuario);

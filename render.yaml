@@ -8,10 +8,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NEXT_PUBLIC_SUPABASE_URL
+      - key: DATABASE_URL
         sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - key: DIRECT_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: AUTH_SECRET
         sync: false
     healthCheckPath: /api/salud

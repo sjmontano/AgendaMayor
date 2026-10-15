@@ -1,10 +1,11 @@
-import { getSupabaseServer } from '@/lib/supabase/server';
-import { notFound } from '@/lib/errors';
-import type { ProyectoCreateDTO, ProyectoUpdateDTO, ProyectoQueryDTO } from './proyecto.dto';
+import { Prisma } from "@prisma/client";
+import type { Proyecto as ProyectoDB } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import type { ProyectoCreateDTO, ProyectoUpdateDTO, ProyectoQueryDTO } from "./proyecto.dto";
 
 /**
  * Repository de proyectos — patrón Repository (Fowler).
- * Aísla Supabase de la lógica de negocio.
+ * Aísla la BD (Postgres vía Prisma) de la lógica de negocio.
  */
 
 export interface ProyectoRow {
@@ -26,99 +27,128 @@ export interface ProyectoRow {
   autor?: { username: string; nombre: string; apellido: string; avatar: string | null } | null;
 }
 
-export async function listarPublicados(filtros: ProyectoQueryDTO): Promise<{ data: ProyectoRow[]; total: number }> {
-  const supabase = getSupabaseServer();
-  let query = supabase
-    .from('proyecto')
-    .select('*, autor:usuario!proyecto_autor_id_fkey(username, nombre, apellido, avatar)', { count: 'exact' })
-    .eq('estado', 'PUBLICADO')
-    .order('fecha_registro', { ascending: false });
+const INCLUDE_AUTOR = {
+  autor: { select: { username: true, nombre: true, apellido: true, avatar: true } },
+} satisfies Prisma.ProyectoInclude;
 
-  if (filtros.facultad) query = query.eq('facultad', filtros.facultad);
-  if (filtros.tipo) query = query.eq('tipo', filtros.tipo);
-  if (filtros.q) {
-    query = query.or(`titulo.ilike.%${filtros.q}%,descripcion.ilike.%${filtros.q}%`);
+type ProyectoCrudo = ProyectoDB & { autor?: ProyectoRow["autor"] };
+
+/**
+ * Normaliza `fotos` a string[].
+ * Las filas creadas con doble codificación (string en vez de arreglo jsonb)
+ * se parsean aquí para no romper las vistas.
+ */
+function normalizarFotos(valor: unknown): string[] {
+  if (Array.isArray(valor)) return valor.filter((f): f is string => typeof f === "string");
+  if (typeof valor === "string") {
+    if (!valor) return [];
+    try {
+      const parsed: unknown = JSON.parse(valor);
+      if (Array.isArray(parsed)) return parsed.filter((f): f is string => typeof f === "string");
+      return [valor];
+    } catch {
+      return [valor];
+    }
   }
-  if (filtros.autor) query = query.eq('autor.username', filtros.autor);
+  return [];
+}
 
-  const from = (filtros.page - 1) * filtros.limit;
-  const to = from + filtros.limit - 1;
-  query = query.range(from, to);
+/** Convierte la fila de Prisma al contrato de la API (fecha como ISO). */
+function aFila(p: ProyectoCrudo): ProyectoRow {
+  return {
+    ...p,
+    fotos: normalizarFotos(p.fotos),
+    fecha_registro: p.fecha_registro.toISOString(),
+  };
+}
 
-  const { data, error, count } = await query;
-  if (error) throw error;
+export async function listarPublicados(
+  filtros: ProyectoQueryDTO
+): Promise<{ data: ProyectoRow[]; total: number }> {
+  const where: Prisma.ProyectoWhereInput = { estado: "PUBLICADO" };
 
-  return { data: (data as ProyectoRow[]) ?? [], total: count ?? 0 };
+  if (filtros.facultad) where.facultad = filtros.facultad;
+  if (filtros.tipo) where.tipo = filtros.tipo;
+  if (filtros.autor) where.autor = { username: filtros.autor };
+  if (filtros.q) {
+    where.OR = [
+      { titulo: { contains: filtros.q, mode: "insensitive" } },
+      { descripcion: { contains: filtros.q, mode: "insensitive" } },
+    ];
+  }
+
+  const [filas, total] = await Promise.all([
+    prisma.proyecto.findMany({
+      where,
+      include: INCLUDE_AUTOR,
+      orderBy: { fecha_registro: "desc" },
+      skip: (filtros.page - 1) * filtros.limit,
+      take: filtros.limit,
+    }),
+    prisma.proyecto.count({ where }),
+  ]);
+
+  return { data: filas.map(aFila), total };
+}
+
+/** Cola de moderación: por estado y (opcional) facultad. */
+export async function listarPorEstado(
+  estado: string,
+  facultad?: string | null
+): Promise<ProyectoRow[]> {
+  const filas = await prisma.proyecto.findMany({
+    where: { estado, ...(facultad ? { facultad } : {}) },
+    include: INCLUDE_AUTOR,
+    orderBy: { fecha_registro: "desc" },
+  });
+  return filas.map(aFila);
 }
 
 export async function buscarPorId(id: number): Promise<ProyectoRow | null> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('proyecto')
-    .select('*, autor:usuario!proyecto_autor_id_fkey(username, nombre, apellido, avatar)')
-    .eq('id_proyecto', id)
-    .single();
-
-  if (error) return null;
-  return data as ProyectoRow;
+  const fila = await prisma.proyecto.findUnique({
+    where: { id_proyecto: id },
+    include: INCLUDE_AUTOR,
+  });
+  return fila ? aFila(fila) : null;
 }
 
 export async function crear(datos: ProyectoCreateDTO, autorId: number): Promise<ProyectoRow> {
-  const supabase = getSupabaseServer();
-
-  const { data, error } = await supabase
-    .from('proyecto')
-    .insert({
+  const fila = await prisma.proyecto.create({
+    data: {
       titulo: datos.titulo,
       descripcion: datos.descripcion,
       facultad: datos.facultad,
       programa: datos.programa,
       tipo: datos.tipo,
-      fotos: JSON.stringify(datos.fotos),
+      fotos: datos.fotos ?? [],
       evento_origen_id: datos.eventoOrigenId ?? null,
       autor_id: autorId,
-      estado: 'EN_REVISION',
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as ProyectoRow;
+      estado: "EN_REVISION",
+    },
+  });
+  return aFila(fila);
 }
 
-export async function actualizar(
-  id: number,
-  datos: ProyectoUpdateDTO
-): Promise<ProyectoRow> {
-  const supabase = getSupabaseServer();
+export async function actualizar(id: number, datos: ProyectoUpdateDTO): Promise<ProyectoRow> {
+  const updatePayload: Prisma.ProyectoUncheckedUpdateInput = {};
 
-  const updatePayload: Record<string, unknown> = {};
   if (datos.titulo !== undefined) updatePayload.titulo = datos.titulo;
   if (datos.descripcion !== undefined) updatePayload.descripcion = datos.descripcion;
   if (datos.facultad !== undefined) updatePayload.facultad = datos.facultad;
   if (datos.programa !== undefined) updatePayload.programa = datos.programa;
   if (datos.tipo !== undefined) updatePayload.tipo = datos.tipo;
-  if (datos.fotos !== undefined) updatePayload.fotos = JSON.stringify(datos.fotos);
+  if (datos.fotos !== undefined) updatePayload.fotos = datos.fotos;
   if (datos.destacado !== undefined) updatePayload.destacado = datos.destacado;
   if (datos.estado !== undefined) updatePayload.estado = datos.estado;
   if (datos.motivoRechazo !== undefined) updatePayload.motivo_rechazo = datos.motivoRechazo;
 
-  const { data, error } = await supabase
-    .from('proyecto')
-    .update(updatePayload)
-    .eq('id_proyecto', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as ProyectoRow;
+  const fila = await prisma.proyecto.update({
+    where: { id_proyecto: id },
+    data: updatePayload,
+  });
+  return aFila(fila);
 }
 
 export async function contarPorAutor(autorId: number): Promise<number> {
-  const supabase = getSupabaseServer();
-  const { count } = await supabase
-    .from('proyecto')
-    .select('*', { count: 'exact', head: true })
-    .eq('autor_id', autorId);
-  return count ?? 0;
+  return prisma.proyecto.count({ where: { autor_id: autorId } });
 }

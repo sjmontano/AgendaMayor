@@ -20,10 +20,10 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const sesion = await apiGet<{ username: string }>("/api/perfil", {
+  const sesion = await apiGet<{ username: string; nombre_rol: string }>("/api/perfil", {
     headers: await headersConSesion(),
   })
-    .then((u) => ({ username: u.username }))
+    .then((u) => ({ username: u.username, nombre_rol: u.nombre_rol }))
     .catch(() => null);
 
   return (

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err } from '@/lib/errors';
-import { getSesionActual } from '@/lib/supabase/auth.adapter';
-import { obtenerUsuarioPorAuthId, requiereRol } from '@/lib/auth';
+import { getSesionDesdeCookies } from '@/lib/sesion';
+import { obtenerUsuarioPorId, requiereRol } from '@/lib/auth';
 import * as puestoService from '@/modelo/puestos/puesto.service';
 import { PuestoUpdateSchema } from '@/modelo/puestos/puesto.dto';
 import { z } from 'zod';
@@ -35,8 +35,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     requiereRol(usuario, 'ADMIN');
 
     const { id } = await params;
@@ -69,8 +69,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     requiereRol(usuario, 'ADMIN');
 
     const { id } = await params;

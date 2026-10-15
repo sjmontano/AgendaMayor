@@ -1,15 +1,14 @@
-import { getSupabaseServer } from '@/lib/supabase/server';
-import { notFound } from '@/lib/errors';
-import type { PerfilUpdateDTO } from './usuario.dto';
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import type { PerfilUpdateDTO } from "./usuario.dto";
 
 /**
  * Repository de usuarios — patrón Repository (Fowler).
- * Aísla el acceso a BD (Supabase) de la lógica de negocio.
+ * Aísla el acceso a BD (Postgres vía Prisma) de la lógica de negocio.
  */
 
 export interface UsuarioRow {
   id_usuario: number;
-  auth_id: string;
   username: string;
   nombre: string;
   apellido: string;
@@ -24,101 +23,97 @@ export interface UsuarioRow {
   estado: boolean;
 }
 
-export interface UsuarioConRol extends UsuarioRow {
-  rol_info: { nombre: string } | null;
+export interface UsuarioConHash extends UsuarioRow {
+  contrasena_hash: string;
 }
 
-export async function buscarPorAuthId(authId: string): Promise<UsuarioRow | null> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('usuario')
-    .select('*')
-    .eq('auth_id', authId)
-    .single();
+/** Proyección pública: nunca incluye contrasena_hash. */
+const CAMPOS_PUBLICOS = {
+  id_usuario: true,
+  username: true,
+  nombre: true,
+  apellido: true,
+  correo: true,
+  rol: true,
+  facultad: true,
+  programa: true,
+  semestre: true,
+  semillero: true,
+  bio: true,
+  avatar: true,
+  estado: true,
+} satisfies Prisma.UsuarioSelect;
 
-  if (error) return null;
-  return data as UsuarioRow;
+export async function buscarPorId(id: number): Promise<UsuarioRow | null> {
+  return prisma.usuario.findUnique({ where: { id_usuario: id }, select: CAMPOS_PUBLICOS });
 }
 
 export async function buscarPorUsername(username: string): Promise<UsuarioRow | null> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('usuario')
-    .select('*')
-    .eq('username', username)
-    .eq('estado', true)
-    .single();
+  return prisma.usuario.findFirst({
+    where: { username, estado: true },
+    select: CAMPOS_PUBLICOS,
+  });
+}
 
-  if (error) return null;
-  return data as UsuarioRow;
+/** Solo para el login: necesita el hash para compararlo. */
+export async function buscarPorCorreoConHash(correo: string): Promise<UsuarioConHash | null> {
+  return prisma.usuario.findUnique({
+    where: { correo },
+    select: { ...CAMPOS_PUBLICOS, contrasena_hash: true },
+  });
 }
 
 export async function crear(datos: {
-  authId: string;
   username: string;
   nombre: string;
   apellido: string;
   correo: string;
+  contrasenaHash: string;
   facultad?: string;
   programa?: string;
   semestre?: number;
   rol?: number;
 }): Promise<UsuarioRow> {
-  const supabase = getSupabaseServer();
-
   // Si no se especifica rol, buscar ESTUDIANTE
   let rolId = datos.rol;
   if (!rolId) {
-    const { data: rol } = await supabase
-      .from('rol')
-      .select('id_rol')
-      .eq('nombre', 'ESTUDIANTE')
-      .single();
+    const rol = await prisma.rol.findUnique({
+      where: { nombre: "ESTUDIANTE" },
+      select: { id_rol: true },
+    });
     rolId = rol?.id_rol ?? 1;
   }
 
-  const { data, error } = await supabase
-    .from('usuario')
-    .insert({
-      auth_id: datos.authId,
+  return prisma.usuario.create({
+    data: {
       username: datos.username,
       nombre: datos.nombre,
       apellido: datos.apellido,
       correo: datos.correo,
+      contrasena_hash: datos.contrasenaHash,
       rol: rolId,
       facultad: datos.facultad ?? null,
       programa: datos.programa ?? null,
       semestre: datos.semestre ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as UsuarioRow;
+    },
+    select: CAMPOS_PUBLICOS,
+  });
 }
 
-export async function actualizarPerfil(
-  authId: string,
-  datos: PerfilUpdateDTO
-): Promise<UsuarioRow> {
-  const supabase = getSupabaseServer();
-
-  const { data, error } = await supabase
-    .from('usuario')
-    .update(datos)
-    .eq('auth_id', authId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as UsuarioRow;
+export async function actualizarPerfil(id: number, datos: PerfilUpdateDTO): Promise<UsuarioRow> {
+  return prisma.usuario.update({
+    where: { id_usuario: id },
+    data: datos,
+    select: CAMPOS_PUBLICOS,
+  });
 }
 
 export async function existeUsername(username: string): Promise<boolean> {
-  const supabase = getSupabaseServer();
-  const { count } = await supabase
-    .from('usuario')
-    .select('*', { count: 'exact', head: true })
-    .eq('username', username);
-  return (count ?? 0) > 0;
+  const total = await prisma.usuario.count({ where: { username } });
+  return total > 0;
+}
+
+export async function existeCorreo(correo: string): Promise<boolean> {
+  const total = await prisma.usuario.count({ where: { correo } });
+  return total > 0;
 }

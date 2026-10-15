@@ -1,9 +1,10 @@
-import { getSupabaseServer } from "@/lib/supabase/server";
+import type { Evento as EventoBD } from "@prisma/client";
+import { prisma } from "@/lib/db";
 import type { EventoQueryDTO } from "./evento.dto";
 
 /**
  * Repository de eventos — patrón Repository (Fowler).
- * Solo lectura pública de activos (la creación vive en admin).
+ * Lectura pública de activos + creación (HU-11 / importación RSS).
  */
 export interface EventoRow {
   id_evento: number;
@@ -21,22 +22,29 @@ export interface EventoRow {
   activo: boolean;
 }
 
+function aFila(e: EventoBD): EventoRow {
+  return {
+    ...e,
+    fecha_inicio: e.fecha_inicio.toISOString(),
+    fecha_fin: e.fecha_fin.toISOString(),
+  };
+}
+
 export async function listarActivos(
   filtros: EventoQueryDTO
 ): Promise<{ data: EventoRow[]; total: number }> {
-  const supabase = getSupabaseServer();
-  const from = (filtros.page - 1) * filtros.limit;
-  const to = from + filtros.limit - 1;
+  const where = { activo: true };
+  const [filas, total] = await Promise.all([
+    prisma.evento.findMany({
+      where,
+      orderBy: { fecha_inicio: "asc" },
+      skip: (filtros.page - 1) * filtros.limit,
+      take: filtros.limit,
+    }),
+    prisma.evento.count({ where }),
+  ]);
 
-  const { data, error, count } = await supabase
-    .from("evento")
-    .select("*", { count: "exact" })
-    .eq("activo", true)
-    .order("fecha_inicio", { ascending: true })
-    .range(from, to);
-
-  if (error) throw error;
-  return { data: (data as EventoRow[]) ?? [], total: count ?? 0 };
+  return { data: filas.map(aFila), total };
 }
 
 export interface EventoCrear {
@@ -54,13 +62,12 @@ export interface EventoCrear {
   autor_id: number;
 }
 
-export async function crear(datos: EventoCrear) {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("evento")
-    .insert({ ...datos, activo: true })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+export async function crear(datos: EventoCrear): Promise<EventoRow> {
+  const fila = await prisma.evento.create({ data: { ...datos, activo: true } });
+  return aFila(fila);
+}
+
+/** Cuenta eventos con un título exacto (idempotencia de la importación RSS). */
+export async function contarPorTitulo(titulo: string): Promise<number> {
+  return prisma.evento.count({ where: { titulo } });
 }

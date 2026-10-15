@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ok, err, badRequest } from "@/lib/errors";
-import { getSesionDesdeCookies } from "@/lib/supabase/sesion";
-import { obtenerUsuarioPorAuthId } from "@/lib/auth";
+import { getSesionDesdeCookies } from "@/lib/sesion";
+import { obtenerUsuarioPorId } from "@/lib/auth";
 import { listarPorUsuario, marcarLeida } from "@/modelo/notificaciones/notificacion.repository";
 
 /**
@@ -10,7 +10,7 @@ import { listarPorUsuario, marcarLeida } from "@/modelo/notificaciones/notificac
 export async function GET() {
   try {
     const sesion = await getSesionDesdeCookies();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     return ok(await listarPorUsuario(usuario.id_usuario));
   } catch (e) {
     return err(e);
@@ -23,7 +23,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const sesion = await getSesionDesdeCookies();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     const body = await request.json();
     if (typeof body?.id !== "number") throw badRequest("Se requiere id numérico");
     await marcarLeida(body.id, usuario.id_usuario);

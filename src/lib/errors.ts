@@ -1,3 +1,5 @@
+import { ZodError } from "zod";
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -46,6 +48,14 @@ export function err(error: unknown) {
       { status: error.status }
     );
   }
+
+  if (error instanceof ZodError) {
+    return Response.json(
+      { data: null, error: { message: "Datos inválidos", details: error.issues } },
+      { status: 400 }
+    );
+  }
+
   console.error('[API Error]', error);
   return Response.json(
     { data: null, error: { message: 'Error interno del servidor' } },

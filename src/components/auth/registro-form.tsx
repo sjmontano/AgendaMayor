@@ -2,26 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { apiPost } from "@/lib/api";
 import { FACULTADES } from "@/lib/facultades";
 import { LoadingButton } from "@/components/ui/skeleton";
 
 /**
  * Formulario de registro — Vista (capa de Presentación).
- * Paso 1: signUp en Auth. Paso 2: POST /api/usuarios/registro (fila USUARIO).
+ * Crea la cuenta con contraseña propia en POST /api/usuarios/registro
+ * (el backend hashea con bcrypt y deja la sesión iniciada).
  * HU-01: dominio @unimayor.edu.co + consentimiento Ley 1581 obligatorios.
  */
 export function RegistroForm() {
   const router = useRouter();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setAviso(null);
     setCargando(true);
     try {
       const fd = new FormData(e.currentTarget);
@@ -31,18 +29,9 @@ export function RegistroForm() {
       if (password.length < 8) throw new Error("La contraseña debe tener mínimo 8 caracteres");
       if (!fd.get("consentimiento")) throw new Error("Debes aceptar el tratamiento de datos (Ley 1581/2012)");
 
-      const supabase = getSupabaseBrowser();
-      const { data, error: signError } = await supabase.auth.signUp({ email, password });
-      if (signError) throw new Error(signError.message);
-
-      // Si Supabase exige confirmar el correo, aún NO hay sesión:
-      // no llamar al API (daría 401 "Sesión no válida o expirada").
-      if (!data.session) {
-        setAviso("Cuenta creada. Revisa tu correo institucional y confirma tu cuenta para poder ingresar.");
-        return;
-      }
-
       await apiPost("/api/usuarios/registro", {
+        email,
+        password,
         username: String(fd.get("username")),
         nombre: String(fd.get("nombre")),
         apellido: String(fd.get("apellido")),
@@ -102,11 +91,6 @@ export function RegistroForm() {
       {error && (
         <p role="alert" className="rounded-[10px] border-2 border-[#DC2626] bg-red-50 p-3 text-sm font-semibold text-[#DC2626]">
           {error}
-        </p>
-      )}
-      {aviso && (
-        <p role="status" className="rounded-[10px] border-2 border-[#004884] bg-blue-50 p-3 text-sm font-semibold text-[#004884]">
-          {aviso}
         </p>
       )}
       {cargando ? (

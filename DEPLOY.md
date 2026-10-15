@@ -1,12 +1,29 @@
 # Deploy — Agenda Mayor
 
+## Preparar la base de datos (Neon)
+
+1. Crear un proyecto en [neon.tech](https://neon.tech).
+2. Copiar las dos cadenas de conexión desde **Dashboard → Connection string**:
+   - **Pooled** → `DATABASE_URL` (host con `-pooler`).
+   - **Direct** → `DIRECT_URL` (host sin `-pooler`, la usan las migraciones).
+3. Crear las tablas y sembrar roles/usuarios:
+
+```bash
+npx prisma db push      # crea el esquema en Postgres
+npx prisma db seed      # roles + usuarios demo (contraseña: Unimayor2026)
+```
+
+> Opcional: `npx prisma migrate dev` si prefieres migraciones versionadas en `prisma/migrations/`.
+
+---
+
 ## Variables de entorno (requeridas)
 
 | Variable | Descripción | Dónde obtenerla |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase | Supabase Dashboard → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key (pública) | Supabase Dashboard → Settings → API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role (secreta, solo server) | Supabase Dashboard → Settings → API |
+| `DATABASE_URL` | Cadena **pooled** de Postgres | Neon → Dashboard → Connection string |
+| `DIRECT_URL` | Cadena **directa** de Postgres | Neon → Dashboard → Connection string |
+| `AUTH_SECRET` | Clave para firmar la cookie de sesión (JWT) | Genera con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
 ---
 
@@ -19,7 +36,9 @@
 5. Agregar las 3 variables de entorno en **Settings → Environment Variables**
 6. Deploy
 
-**Pros:** zero-config, edge functions, analytics, previews por PR.
+**Pros:** zero-config, analytics, previews por PR.
+
+> El `build` incluye `prisma generate` automáticamente (`npm run build`).
 
 ---
 
@@ -47,9 +66,9 @@ docker build -t agenda-mayor .
 
 # Run
 docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
-  -e NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ... \
-  -e SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+  -e DATABASE_URL="postgresql://...-pooler.../agendamayor?sslmode=require" \
+  -e DIRECT_URL="postgresql://.../agendamayor?sslmode=require" \
+  -e AUTH_SECRET="..." \
   agenda-mayor
 ```
 
@@ -57,9 +76,8 @@ docker run -p 3000:3000 \
 
 ## Post-deploy
 
-1. Ejecutar la migración SQL en Supabase:
-   - Ir a SQL Editor → pegar contenido de `supabase/migrations/0001_mvp.sql`
-   - Pegar contenido de `supabase/seed.sql`
-2. Verificar: `GET /api/salud` debe retornar `{"data":"ok"}`
-3. Crear cuenta de admin en `/registro` y cambiar su rol a ADMIN en la BD
-4. Importar eventos: `POST /api/admin/importar-eventos` (como ADMIN)
+1. Verificar: `GET /api/salud` debe retornar `{"data":{"ok":true,...}}`
+2. Para tener un ADMIN: registrarse en `/registro` y cambiar el rol en la BD
+   (`update usuario set rol = (select id_rol from rol where nombre = 'ADMIN') where correo = '...'`),
+   o usar los usuarios del seed.
+3. Importar eventos: `POST /api/admin/importar-eventos` (como ADMIN).

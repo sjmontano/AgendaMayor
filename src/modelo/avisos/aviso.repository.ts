@@ -1,4 +1,5 @@
-import { getSupabaseServer } from "@/lib/supabase/server";
+import type { Aviso as AvisoBD } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 /**
  * Repository de avisos — patrón Repository (Fowler).
@@ -12,13 +13,10 @@ export interface AvisoRow {
 }
 
 export async function listarActivos(): Promise<AvisoRow[]> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from("aviso")
-    .select("*")
-    .eq("activo", true)
-    .order("fecha", { ascending: false })
-    .limit(3);
-  if (error) throw error;
-  return (data as AvisoRow[]) ?? [];
+  const filas = await prisma.aviso.findMany({
+    where: { activo: true },
+    orderBy: { fecha: "desc" },
+    take: 3,
+  });
+  return filas.map((a: AvisoBD) => ({ ...a, fecha: a.fecha.toISOString() }));
 }

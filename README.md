@@ -7,7 +7,8 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)
 ![Vitest](https://img.shields.io/badge/Vitest-3-729B1B?logo=vitest)
 
@@ -33,7 +34,7 @@ El sistema está diseñado para que cualquier estudiante con correo instituciona
 | **Publicación** | Formulario con validación Zod,	State Machine (BORRADOR → EN_REVISION → PUBLICADO/RECHAZADO). |
 | **Aval Docente** | Docente revisa y aprueba/rechaza proyectos de su facultad. Notificaciones en tiempo real. |
 | **Administración** | Moderación de proyectos, importación de eventos RSS, gestión de puestos EAFI. |
-| **Autenticación** | Supabase Auth con cookies HTTP-only, registro con correo @unimayor.edu.co. |
+| **Autenticación** | Sesión propia (email/contraseña con bcrypt + cookie JWT httpOnly), registro con correo @unimayor.edu.co. |
 
 ---
 
@@ -43,10 +44,10 @@ El sistema sigue el patrón **MVC por capas** (Model-View-Controller) con regla 
 
 ```
 Presentación → Modelo → Datos → Infraestructura
-   (Vistas)    (Servicios) (Repositorios)  (Supabase, RSS)
+   (Vistas)    (Servicios) (Repositorios)  (Prisma/Postgres, RSS)
 ```
 
-**Nunca se invierte la dependencia.** Las vistas solo consultan la API propia (`/api/*`), nunca Supabase directamente.
+**Nunca se invierte la dependencia.** Las vistas solo consultan la API propia (`/api/*`), nunca la base de datos directamente.
 
 ### Diagrama de capas
 
@@ -54,15 +55,15 @@ Presentación → Modelo → Datos → Infraestructura
 ┌─────────────────────────────────────────────────────────┐
 │                   PRESENTACIÓN                          │
 │  app/ (pages + API routes)  ·  components/ (UI)         │
-│  Regla: solo consume /api/*, nunca modelo/ ni Supabase  │
+│  Regla: solo consume /api/*, nunca modelo/ ni la BD      │
 ├─────────────────────────────────────────────────────────┤
 │                     MODELO                               │
 │  modelo/ (services + repositories + DTOs + states)       │
 │  Regla: negocio puro, sin dependencias de framework      │
 ├─────────────────────────────────────────────────────────┤
 │                       DATOS                              │
-│  lib/supabase/ (client, server, auth adapter, storage)   │
-│  Regla: acceso a Supabase, cookies, sesiones             │
+│  lib/db.ts (Prisma), lib/sesion.ts, lib/password.ts      │
+│  Regla: acceso a Postgres, cookies, credenciales         │
 ├─────────────────────────────────────────────────────────┤
 │                  INFRAESTRUCTURA                         │
 │  lib/integraciones/ (RSS UNIMAYOR)                       │
@@ -96,7 +97,10 @@ agenda-mayor/
 │   │   │   ├── puestos/[id]/         # GET/PATCH/DELETE /api/puestos/:id
 │   │   │   ├── notificaciones/       # GET/PATCH /api/notificaciones
 │   │   │   ├── avisos/               # GET /api/avisos
-│   │   │   ├── usuarios/registro/    # POST /api/usuarios/registro
+│   │   │   ├── usuarios/registro/    # POST /api/usuarios/registro (crea cuenta + sesión)
+│   │   │   ├── auth/
+│   │   │   │   ├── login/            # POST /api/auth/login
+│   │   │   │   └── logout/           # POST /api/auth/logout
 │   │   │   └── admin/
 │   │   │       ├── proyectos/        # GET/PATCH /api/admin/proyectos
 │   │   │       └── importar-eventos/ # POST /api/admin/importar-eventos
@@ -131,7 +135,9 @@ agenda-mayor/
 │   │   └── notificaciones/           # dto, repository, service
 │   │
 │   ├── lib/                          # Infraestructura compartida
-│   │   ├── supabase/                 # server (Singleton), client, sesion, auth.adapter, storage
+│   │   ├── db.ts                     # Singleton PrismaClient
+│   │   ├── sesion.ts                 # Sesión JWT en cookie (login/logout)
+│   │   ├── password.ts               # Hash/verify bcrypt
 │   │   ├── integraciones/            # unimayor-rss.ts (parser + fetcher)
 │   │   ├── api.ts                    # apiGet/Post/Patch + headersConSesion
 │   │   ├── auth.ts                   # obtenerUsuarioPorAuthId, requiereRol, puedeAvalar
@@ -148,9 +154,9 @@ agenda-mayor/
 │   ├── proyecto.state.test.ts        # Tests de State Machine
 │   └── unimayor-rss.test.ts          # Tests del parser RSS
 │
-├── supabase/
-│   ├── migrations/0001_mvp.sql       # Schema completo (7 tablas + RLS + seed roles)
-│   └── seed.sql                      # Datos de prueba (4 usuarios, 6 proyectos, etc.)
+├── prisma/
+│   ├── schema.prisma                 # Modelo de datos (7 tablas + contrasena_hash)
+│   └── seed.mjs                       # Roles + usuarios demo
 │
 ├── public/brand/                     # Activos de marca
 │   ├── logoPrincipal.jpg             # Isologo (navbar, hero, favicon)
@@ -206,8 +212,10 @@ agenda-mayor/
 ### Backend
 | Tecnología | Versión | Uso |
 |---|---|---|
-| **Supabase** | — | PostgreSQL + Auth + Storage + Row Level Security |
-| **@supabase/ssr** | 0.12.7 | Clientes Supabase con cookies HTTP-only |
+| **PostgreSQL (Neon)** | — | Base de datos relacional gestionada |
+| **Prisma** | 6.x | ORM: esquema, cliente tipado y migraciones |
+| **bcryptjs** | 3.x | Hash de contraseñas |
+| **jose** | 6.x | Firma/verificación del JWT de sesión |
 | **Zod** | 4.x | Validación de DTOs en tiempo de ejecución |
 | **fast-xml-parser** | 5.x | Parser del feed RSS de UNIMAYOR |
 
@@ -231,15 +239,15 @@ agenda-mayor/
 
 | Patrón | Ubicación | Descripción |
 |---|---|---|
-| **Adapter** | `lib/supabase/auth.adapter.ts` | Desacopla la lógica de sesión del SDK de Supabase. Permite cambiar la estrategia de auth sin modificar los servicios. |
+| **Adapter** | `lib/sesion.ts` + `lib/password.ts` | Aíslan la estrategia de sesión (JWT/cookie) y de hash del resto del código. Permiten cambiar de mecanismo sin tocar los servicios. |
 | **DTO** | `modelo/*/dto.ts` | Transfiere datos entre capas sin exponer entidades de BD. Validación Zod en cada DTO. |
-| **Repository** | `modelo/*/repository.ts` | Abstrae el acceso a datos. Los servicios nunca llaman Supabase directamente — solo el repository. |
+| **Repository** | `modelo/*/repository.ts` | Abstrae el acceso a datos. Los servicios nunca llaman a Prisma directamente — solo el repository. |
 
 ### Patrones Creacionales (GoF)
 
 | Patrón | Ubicación | Descripción |
 |---|---|---|
-| **Singleton** | `lib/supabase/server.ts` | Instancia única del cliente Supabase por request. Evita crear múltiples conexiones. |
+| **Singleton** | `lib/db.ts` | Instancia única de `PrismaClient` (evita múltiples conexiones con el hot-reload). |
 | **Factory** | `lib/errors.ts` | Funciones `ok()`, `err()`, `badRequest()`, `forbidden()` que crean respuestas estandarizadas. |
 
 ### Patrones de Comportamiento (GoF)
@@ -259,7 +267,7 @@ agenda-mayor/
 
 ## Modelo de Datos
 
-7 tablas en PostgreSQL (Supabase):
+7 tablas en PostgreSQL (Neon), definidas en `prisma/schema.prisma`:
 
 ```
 ROL (1) ──── (N) USUARIO (1) ──── (N) PROYECTO
@@ -277,7 +285,7 @@ USUARIO (1) ──── (N) NOTIFICACION
 | Tabla | Registros | Descripción |
 |---|---|---|
 | `rol` | 3 | ESTUDIANTE, DOCENTE, ADMIN |
-| `usuario` | — | Perfil completo con auth_id, username, facultad, semillero |
+| `usuario` | — | Perfil completo con `contrasena_hash` (bcrypt), username, facultad, semillero |
 | `proyecto` | — | Título, descripción, fotos (JSONB), tipo, estado, aval docente |
 | `evento` | — | Tipo (OFICIAL/EAFI/COMUNIDAD), fechas, lugar, imagen |
 | `puesto` | — | Ubicación física (edificio, piso, salón) para mesas EAFI |
@@ -304,8 +312,8 @@ USUARIO (1) ──── (N) NOTIFICACION
 | # | HU | Estudiante |
 |---|---|---|
 | HU-01 | Registrar cuenta con correo institucional | Santiago Montaño |
-| HU-02 | Iniciar sesión con Supabase Auth | Santiago Montaño |
-| HU-03 | Cerrar sesión invalidando token | Santiago Montaño |
+| HU-02 | Iniciar sesión (email/contraseña propia) | Santiago Montaño |
+| HU-03 | Cerrar sesión invalidando la cookie | Santiago Montaño |
 | HU-04 | Ver vitrina de proyectos con filtros | Santiago Montaño |
 | HU-05 | Ver detalle de proyecto con puesto | Santiago Montaño |
 | HU-06 | Publicar proyecto en borrador | Luisa Maya |
@@ -332,12 +340,13 @@ cd agenda-mayor
 npm install
 
 # 3. Configurar variables de entorno
-cp .env.example .env.local
-# Editar .env.local con tus credenciales de Supabase
+cp .env.example .env
+# Editar .env con la cadena de conexión de Neon (DATABASE_URL + DIRECT_URL)
+# y definir AUTH_SECRET.
 
-# 4. Ejecutar migraciones en Supabase
-# Copiar contenido de supabase/migrations/0001_mvp.sql al SQL Editor
-# Copiar contenido de supabase/seed.sql al SQL Editor
+# 4. Crear el esquema y sembrar roles/usuarios
+npx prisma db push
+npx prisma db seed     # usuarios demo, contraseña: Unimayor2026
 
 # 5. Desarrollo
 npm run dev
@@ -349,10 +358,14 @@ npm run dev
 | Comando | Descripción |
 |---|---|
 | `npm run dev` | Servidor de desarrollo (localhost:3000) |
-| `npm run build` | Build de producción (standalone) |
+| `npm run build` | Build de producción (`prisma generate` + standalone) |
 | `npm start` | Servidor de producción |
 | `npm run lint` | ESLint |
-| `npx vitest run` | Ejecutar pruebas (14 tests) |
+| `npm run db:push` | Crea/actualiza el esquema en Postgres |
+| `npm run db:migrate` | Migraciones versionadas (`prisma migrate dev`) |
+| `npm run db:seed` | Roles + usuarios demo |
+| `npm run db:studio` | Prisma Studio |
+| `npx vitest run` | Ejecutar pruebas |
 | `npx tsc --noEmit` | Verificación de tipos |
 
 ---
@@ -361,9 +374,9 @@ npm run dev
 
 | Variable | Descripción | Obligatoria |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase | Sí |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key (pública) | Sí |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role (secreta, server-side) | Sí |
+| `DATABASE_URL` | Cadena pooled de Postgres (Neon) | Sí |
+| `DIRECT_URL` | Cadena directa de Postgres (migraciones) | Sí |
+| `AUTH_SECRET` | Clave para firmar la cookie de sesión | Sí |
 
 ---
 
@@ -380,9 +393,9 @@ npx vercel --prod
 ```bash
 docker build -t agenda-mayor .
 docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
-  -e NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ... \
-  -e SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+  -e DATABASE_URL="postgresql://...-pooler.../agendamayor?sslmode=require" \
+  -e DIRECT_URL="postgresql://.../agendamayor?sslmode=require" \
+  -e AUTH_SECRET="..." \
   agenda-mayor
 ```
 

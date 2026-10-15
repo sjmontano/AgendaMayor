@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/errors";
-import { getSesionDesdeCookies } from "@/lib/supabase/sesion";
-import { obtenerUsuarioPorAuthId } from "@/lib/auth";
+import { getSesionDesdeCookies } from "@/lib/sesion";
+import { obtenerUsuarioPorId } from "@/lib/auth";
 import { listarActivos } from "@/modelo/eventos/evento.repository";
 import { crear } from "@/modelo/eventos/evento.service";
 import { EventoQuerySchema, EventoCreateSchema } from "@/modelo/eventos/evento.dto";
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const sesion = await getSesionDesdeCookies();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     const body = await request.json();
     const datos = EventoCreateSchema.parse(body);
     return ok(await crear(datos, usuario), 201);

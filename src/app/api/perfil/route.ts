@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err } from '@/lib/errors';
-import { getSesionActual } from '@/lib/supabase/auth.adapter';
-import { obtenerUsuarioPorAuthId } from '@/lib/auth';
+import { getSesionDesdeCookies } from '@/lib/sesion';
+import { obtenerUsuarioPorId } from '@/lib/auth';
 import { actualizarMiPerfil } from '@/modelo/usuarios/usuario.service';
 import { PerfilUpdateSchema } from '@/modelo/usuarios/usuario.dto';
 
@@ -10,8 +10,8 @@ import { PerfilUpdateSchema } from '@/modelo/usuarios/usuario.dto';
  */
 export async function GET() {
   try {
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     return ok(usuario);
   } catch (e) {
     return err(e);
@@ -23,10 +23,10 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const sesion = await getSesionActual();
+    const sesion = await getSesionDesdeCookies();
     const body = await request.json();
     const datos = PerfilUpdateSchema.parse(body);
-    const actualizado = await actualizarMiPerfil(sesion.userId, datos);
+    const actualizado = await actualizarMiPerfil(Number(sesion.userId), datos);
     return ok(actualizado);
   } catch (e) {
     return err(e);

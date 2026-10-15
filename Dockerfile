@@ -9,8 +9,13 @@ RUN npm ci
 # ── Build ──
 FROM base AS builder
 WORKDIR /app
+# Prisma necesita OpenSSL en Alpine
+RUN apk add --no-cache openssl libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `prisma generate` solo necesita que las variables existan, no una BD real.
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/agendamayor"
+ENV DIRECT_URL="postgresql://user:pass@localhost:5432/agendamayor"
 RUN npm run build
 
 # ── Producción ──

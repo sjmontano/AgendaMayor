@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err } from '@/lib/errors';
-import { getSesionActual } from '@/lib/supabase/auth.adapter';
-import { obtenerUsuarioPorAuthId, requiereRol } from '@/lib/auth';
+import { getSesionDesdeCookies } from '@/lib/sesion';
+import { obtenerUsuarioPorId, requiereRol } from '@/lib/auth';
 import * as puestoService from '@/modelo/puestos/puesto.service';
 import { PuestoCreateSchema } from '@/modelo/puestos/puesto.dto';
 
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     requiereRol(usuario, 'ADMIN');
 
     const body = await request.json();

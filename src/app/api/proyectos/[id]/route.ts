@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err, badRequest } from '@/lib/errors';
-import { getSesionActual } from '@/lib/supabase/auth.adapter';
-import { obtenerUsuarioPorAuthId } from '@/lib/auth';
+import { getSesionDesdeCookies } from '@/lib/sesion';
+import { obtenerUsuarioPorId } from '@/lib/auth';
 import * as proyectoService from '@/modelo/proyectos/proyecto.service';
 import { ProyectoUpdateSchema } from '@/modelo/proyectos/proyecto.dto';
 import { z } from 'zod';
@@ -40,8 +40,8 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const sesion = await getSesionActual();
-    const usuario = await obtenerUsuarioPorAuthId(sesion.userId);
+    const sesion = await getSesionDesdeCookies();
+    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
     const proyectoId = Number(id);
 
     // Si viene "accion", es una transición de estado (State pattern)
@@ -67,18 +67,14 @@ export async function PATCH(
 
     // Si no viene "accion", es una edición normal del autor
     const datos = ProyectoUpdateSchema.parse(body);
-    const supabase = (await import('@/lib/supabase/server')).getSupabaseServer();
-    const { data: proyecto } = await supabase
-      .from('proyecto')
-      .select('autor_id')
-      .eq('id_proyecto', proyectoId)
-      .single();
+    const proyecto = await proyectoService.obtenerPorId(proyectoId);
 
-    if (!proyecto || proyecto.autor_id !== usuario.id_usuario) {
-      return err(badRequest('Solo el autor puede editar su proyecto'));
+    if (proyecto.autor_id !== usuario.id_usuario) {
+      throw badRequest('Solo el autor puede editar su proyecto');
     }
 
-    const actualizado = await (await import('@/modelo/proyectos/proyecto.repository')).actualizar(proyectoId, datos);
+    const { actualizar } = await import('@/modelo/proyectos/proyecto.repository');
+    const actualizado = await actualizar(proyectoId, datos);
     return ok(actualizado);
   } catch (e) {
     return err(e);

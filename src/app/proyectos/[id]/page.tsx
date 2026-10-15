@@ -40,7 +40,31 @@ export default async function ProyectoDetallePage({
     notFound();
   }
 
-  if (proyecto.estado !== "PUBLICADO") notFound();
+  if (proyecto.estado !== "PUBLICADO") {
+    // El proyecto existe pero aún no es público (EN_REVISION / RECHAZADO).
+    // Mostrar aviso útil en vez de un 404 críptico, sin exponer el contenido
+    // sin moderar.
+    return (
+      <article className="mx-auto max-w-4xl px-6 py-12">
+        <Link href="/proyectos" className="text-sm font-bold text-[#195a90] underline-offset-4 hover:underline">
+          ← Volver a la vitrina
+        </Link>
+        <div className="mt-4 rounded-[10px] border-2 border-[#E4E4E7] bg-[#f8fbfd] p-8 text-center">
+          <p className="text-xs font-bold tracking-[0.2em] text-[#195a90] uppercase">
+            Proyecto #{proyecto.id_proyecto} · {proyecto.estado}
+          </p>
+          <h1 className="mt-2 text-2xl font-extrabold text-[#004884]">
+            Este proyecto aún no está publicado
+          </h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600">
+            Quedó en revisión al publicarse y será visible aquí cuando un
+            docente de su facultad lo avale. Si eres el autor, verás el
+            resultado en la campana de notificaciones.
+          </p>
+        </div>
+      </article>
+    );
+  }
 
   const puesto = await apiGet<PuestoData | null>(
     `/api/puestos?proyectoId=${proyecto.id_proyecto}`

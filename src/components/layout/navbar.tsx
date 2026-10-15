@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { apiPost } from "@/lib/api";
 import { Campana } from "@/components/notificaciones/campana";
 
 /**
@@ -15,9 +15,12 @@ import { Campana } from "@/components/notificaciones/campana";
 export function SalirButton() {
   const router = useRouter();
   async function salir() {
-    await getSupabaseBrowser().auth.signOut();
-    router.push("/");
-    router.refresh();
+    try {
+      await apiPost("/api/auth/logout", {});
+    } finally {
+      router.push("/");
+      router.refresh();
+    }
   }
   return (
     <button
@@ -30,8 +33,9 @@ export function SalirButton() {
   );
 }
 
-export function Navbar({ sesion }: { sesion: { username: string } | null }) {
+export function Navbar({ sesion }: { sesion: { username: string; nombre_rol?: string } | null }) {
   const [abierto, setAbierto] = useState(false);
+  const esModerador = sesion?.nombre_rol === "DOCENTE" || sesion?.nombre_rol === "ADMIN";
 
   const enlaces = [
     { href: "/", label: "Inicio" },
@@ -77,6 +81,14 @@ export function Navbar({ sesion }: { sesion: { username: string } | null }) {
           >
             Publicar
           </Link>
+          {esModerador && (
+            <Link
+              href="/admin"
+              className="text-sm font-bold text-[#004884] underline-offset-4 hover:underline"
+            >
+              Panel
+            </Link>
+          )}
           {sesion ? (
             <span className="flex items-center gap-3">
               <Campana />
@@ -133,6 +145,17 @@ export function Navbar({ sesion }: { sesion: { username: string } | null }) {
                 Publicar
               </Link>
             </li>
+            {esModerador && (
+              <li>
+                <Link
+                  href="/admin"
+                  className="block text-sm font-bold text-[#004884]"
+                  onClick={() => setAbierto(false)}
+                >
+                  Panel
+                </Link>
+              </li>
+            )}
             <li>
               <Link
                 href={sesion ? `/perfil/${sesion.username}` : "/ingresar"}

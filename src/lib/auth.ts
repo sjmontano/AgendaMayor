@@ -1,16 +1,15 @@
-import { getSupabaseServer } from '@/lib/supabase/server';
-import { forbidden, unauthorized } from '@/lib/errors';
+import { prisma } from "@/lib/db";
+import { forbidden, unauthorized } from "@/lib/errors";
 
 /**
  * Servicio de autorización.
- * Consulta el rol del usuario en la BD y aplica reglas de negocio.
+ * Consulta el rol del usuario en la BD (Prisma) y aplica reglas de negocio.
  */
 
-export type RolUsuario = 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN';
+export type RolUsuario = "ESTUDIANTE" | "DOCENTE" | "ADMIN";
 
 export interface UsuarioAuth {
   id_usuario: number;
-  auth_id: string;
   username: string;
   nombre: string;
   apellido: string;
@@ -21,31 +20,27 @@ export interface UsuarioAuth {
 }
 
 /**
- * Dado un auth_id de Supabase, retorna el usuario completo con su rol.
+ * Dado el id_usuario, retorna el usuario completo con su rol.
  * Lanza 401 si no existe en la tabla usuario.
  */
-export async function obtenerUsuarioPorAuthId(authId: string): Promise<UsuarioAuth> {
-  const supabase = getSupabaseServer();
+export async function obtenerUsuarioPorId(id: number): Promise<UsuarioAuth> {
+  const data = await prisma.usuario.findUnique({
+    where: { id_usuario: id },
+    include: { rolRef: true },
+  });
 
-  const { data, error } = await supabase
-    .from('usuario')
-    .select('*, rol:rol!inner(nombre)')
-    .eq('auth_id', authId)
-    .single();
-
-  if (error || !data) {
-    throw unauthorized('Usuario no registrado en el sistema');
+  if (!data) {
+    throw unauthorized("Usuario no registrado en el sistema");
   }
 
   return {
     id_usuario: data.id_usuario,
-    auth_id: data.auth_id,
     username: data.username,
     nombre: data.nombre,
     apellido: data.apellido,
     correo: data.correo,
     rol: data.rol,
-    nombre_rol: data.rol.nombre as RolUsuario,
+    nombre_rol: data.rolRef.nombre as RolUsuario,
     facultad: data.facultad,
   };
 }
@@ -55,7 +50,7 @@ export async function obtenerUsuarioPorAuthId(authId: string): Promise<UsuarioAu
  */
 export function requiereRol(usuario: UsuarioAuth, ...roles: RolUsuario[]) {
   if (!roles.includes(usuario.nombre_rol)) {
-    throw forbidden(`Requiere rol: ${roles.join(' o ')}`);
+    throw forbidden(`Requiere rol: ${roles.join(" o ")}`);
   }
 }
 
@@ -63,9 +58,9 @@ export function requiereRol(usuario: UsuarioAuth, ...roles: RolUsuario[]) {
  * Verifica que un docente pueda avalar proyectos de una facultad.
  */
 export function puedeAvalar(usuario: UsuarioAuth, facultadProyecto: string): void {
-  requiereRol(usuario, 'DOCENTE', 'ADMIN');
+  requiereRol(usuario, "DOCENTE", "ADMIN");
 
-  if (usuario.nombre_rol === 'DOCENTE' && usuario.facultad !== facultadProyecto) {
-    throw forbidden('Solo puede avalar proyectos de su propia facultad');
+  if (usuario.nombre_rol === "DOCENTE" && usuario.facultad !== facultadProyecto) {
+    throw forbidden("Solo puede avalar proyectos de su propia facultad");
   }
 }

@@ -1,5 +1,6 @@
-import { getSupabaseServer } from '@/lib/supabase/server';
-import type { PuestoCreateDTO, PuestoUpdateDTO } from './puesto.dto';
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import type { PuestoCreateDTO, PuestoUpdateDTO } from "./puesto.dto";
 
 /**
  * Repository de puestos — patrón Repository (Fowler).
@@ -19,57 +20,27 @@ export interface PuestoRow {
 }
 
 export async function listar(): Promise<PuestoRow[]> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .select('*')
-    .order('codigo', { ascending: true });
-
-  if (error) throw error;
-  return (data as PuestoRow[]) ?? [];
+  return prisma.puesto.findMany({ orderBy: { codigo: "asc" } });
 }
 
 export async function listarPorEvento(eventoId: number): Promise<PuestoRow[]> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .select('*')
-    .eq('evento_id', eventoId)
-    .order('codigo', { ascending: true });
-
-  if (error) throw error;
-  return (data as PuestoRow[]) ?? [];
+  return prisma.puesto.findMany({
+    where: { evento_id: eventoId },
+    orderBy: { codigo: "asc" },
+  });
 }
 
 export async function buscarPorProyecto(proyectoId: number): Promise<PuestoRow | null> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .select('*')
-    .eq('proyecto_id', proyectoId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as PuestoRow | null) ?? null;
+  return prisma.puesto.findFirst({ where: { proyecto_id: proyectoId } });
 }
 
 export async function buscarPorId(id: number): Promise<PuestoRow | null> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .select('*')
-    .eq('id_puesto', id)
-    .single();
-
-  if (error) return null;
-  return data as PuestoRow;
+  return prisma.puesto.findUnique({ where: { id_puesto: id } });
 }
 
 export async function crear(datos: PuestoCreateDTO): Promise<PuestoRow> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .insert({
+  return prisma.puesto.create({
+    data: {
       codigo: datos.codigo,
       edificio: datos.edificio,
       piso: datos.piso,
@@ -77,30 +48,25 @@ export async function crear(datos: PuestoCreateDTO): Promise<PuestoRow> {
       ubicacion: datos.ubicacion,
       evento_id: datos.eventoId,
       proyecto_id: datos.proyectoId ?? null,
-      estado: datos.proyectoId ? 'OCUPADO' : 'DISPONIBLE',
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as PuestoRow;
+      estado: datos.proyectoId ? "OCUPADO" : "DISPONIBLE",
+    },
+  });
 }
 
 export async function actualizar(id: number, datos: PuestoUpdateDTO): Promise<PuestoRow> {
-  const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('puesto')
-    .update(datos)
-    .eq('id_puesto', id)
-    .select()
-    .single();
+  const data: Prisma.PuestoUncheckedUpdateInput = {};
 
-  if (error) throw error;
-  return data as PuestoRow;
+  if (datos.codigo !== undefined) data.codigo = datos.codigo;
+  if (datos.edificio !== undefined) data.edificio = datos.edificio;
+  if (datos.piso !== undefined) data.piso = datos.piso;
+  if (datos.salon !== undefined) data.salon = datos.salon;
+  if (datos.ubicacion !== undefined) data.ubicacion = datos.ubicacion;
+  if (datos.estado !== undefined) data.estado = datos.estado;
+  if (datos.proyectoId !== undefined) data.proyecto_id = datos.proyectoId;
+
+  return prisma.puesto.update({ where: { id_puesto: id }, data });
 }
 
 export async function eliminar(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
-  const { error } = await supabase.from('puesto').delete().eq('id_puesto', id);
-  if (error) throw error;
+  await prisma.puesto.delete({ where: { id_puesto: id } });
 }

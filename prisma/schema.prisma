@@ -1,0 +1,160 @@
+// ============================================================
+// Agenda Mayor — Esquema Prisma (PostgreSQL / Neon)
+// Reemplaza la base de Supabase. Sin dependencia de Supabase Auth:
+// la contraseña vive hasheada (bcrypt) en la propia tabla `usuario`.
+//
+// Los nombres de tabla/columna se conservan en snake_case (mismo
+// contrato que consumía la API) para no romper las vistas.
+// ============================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Catálogo de roles (ESTUDIANTE, DOCENTE, ADMIN).
+model Rol {
+  id_rol      Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(20)
+  descripcion String?
+
+  usuarios Usuario[]
+
+  @@map("rol")
+}
+
+/// Perfil de usuario. `contrasena_hash` es bcrypt (nunca se expone en la API).
+model Usuario {
+  id_usuario      Int     @id @default(autoincrement())
+  username        String  @unique @db.VarChar(30)
+  nombre          String  @db.VarChar(50)
+  apellido        String  @db.VarChar(50)
+  correo          String  @unique @db.VarChar(100)
+  contrasena_hash String  @db.VarChar(255)
+  rol             Int
+  facultad        String? @db.VarChar(100)
+  programa        String? @db.VarChar(100)
+  semestre        Int?
+  semillero       String? @db.VarChar(100)
+  bio             String? @db.VarChar(280)
+  avatar          String? @db.VarChar(255)
+  estado          Boolean @default(true)
+
+  rolRef         Rol            @relation(fields: [rol], references: [id_rol])
+  proyectos      Proyecto[]     @relation("ProyectoAutor")
+  proyectosAval  Proyecto[]     @relation("ProyectoAval")
+  eventos        Evento[]
+  notificaciones Notificacion[]
+
+  @@index([correo])
+  @@index([username])
+  @@map("usuario")
+}
+
+/// Proyecto de la vitrina. `fotos` es JSONB (arreglo de URLs).
+model Proyecto {
+  id_proyecto      Int      @id @default(autoincrement())
+  titulo           String   @db.VarChar(100)
+  descripcion      String
+  fotos            Json     @default("[]")
+  facultad         String   @db.VarChar(100)
+  programa         String   @db.VarChar(100)
+  tipo             String   @db.VarChar(20)
+  estado           String   @default("BORRADOR") @db.VarChar(20)
+  evento_origen_id Int?
+  docente_aval_id  Int?
+  motivo_rechazo   String?  @db.VarChar(500)
+  autor_id         Int
+  destacado        Boolean  @default(false)
+  fecha_registro   DateTime @default(now()) @db.Date
+
+  eventoOrigen   Evento?        @relation("ProyectoOrigen", fields: [evento_origen_id], references: [id_evento])
+  docenteAval    Usuario?       @relation("ProyectoAval", fields: [docente_aval_id], references: [id_usuario])
+  autor          Usuario        @relation("ProyectoAutor", fields: [autor_id], references: [id_usuario])
+  notificaciones Notificacion[]
+  puestos        Puesto[]
+
+  @@index([autor_id])
+  @@index([estado])
+  @@index([facultad])
+  @@map("proyecto")
+}
+
+/// Evento de la cartelera (OFICIAL, EAFI, COMUNIDAD).
+model Evento {
+  id_evento    Int      @id @default(autoincrement())
+  titulo       String   @db.VarChar(200)
+  descripcion  String
+  tipo         String   @db.VarChar(20)
+  fecha_inicio DateTime @db.Timestamptz(6)
+  fecha_fin    DateTime @db.Timestamptz(6)
+  lugar        String   @db.VarChar(100)
+  es_virtual   Boolean  @default(false)
+  url_virtual  String?  @db.VarChar(255)
+  facultad     String?  @db.VarChar(100)
+  edicion      String?  @db.VarChar(50)
+  imagen       String?  @db.VarChar(255)
+  autor_id     Int
+  activo       Boolean  @default(true)
+
+  autor     Usuario    @relation(fields: [autor_id], references: [id_usuario])
+  proyectos Proyecto[] @relation("ProyectoOrigen")
+  puestos   Puesto[]
+
+  @@index([autor_id])
+  @@index([activo])
+  @@map("evento")
+}
+
+/// Aviso institucional.
+model Aviso {
+  id_aviso Int      @id @default(autoincrement())
+  titulo   String   @db.VarChar(200)
+  texto    String
+  fecha    DateTime @default(now()) @db.Date
+  activo   Boolean  @default(true)
+
+  @@map("aviso")
+}
+
+/// Notificación del usuario (campana).
+model Notificacion {
+  id_notificacion Int      @id @default(autoincrement())
+  mensaje         String
+  fecha           DateTime @default(now()) @db.Timestamptz(6)
+  leida           Boolean  @default(false)
+  usuario_id      Int
+  proyecto_id     Int?
+
+  usuario  Usuario   @relation(fields: [usuario_id], references: [id_usuario])
+  proyecto Proyecto? @relation(fields: [proyecto_id], references: [id_proyecto])
+
+  @@index([usuario_id])
+  @@map("notificacion")
+}
+
+/// Puesto físico (mesa) de una feria EAFI.
+model Puesto {
+  id_puesto   Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  edificio    String  @db.VarChar(100)
+  piso        Int
+  salon       String  @db.VarChar(100)
+  ubicacion   String  @db.VarChar(200)
+  estado      String  @default("DISPONIBLE") @db.VarChar(20)
+  evento_id   Int
+  proyecto_id Int?
+
+  evento   Evento    @relation(fields: [evento_id], references: [id_evento])
+  proyecto Proyecto? @relation(fields: [proyecto_id], references: [id_proyecto])
+
+  @@index([estado])
+  @@index([evento_id])
+  @@map("puesto")
+}
