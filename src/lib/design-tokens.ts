@@ -1,25 +1,36 @@
 /**
  * Design tokens — Agenda Mayor.
- * Fuente: unimayor.edu.co (estilos medidos) + patrones de Opera Prima.
- * Regla: usar estos tokens, nunca hex sueltos en componentes.
+ * Fuente: unimayor.edu.co (estilos medidos) + dirección creativa de DESIGN.md.
+ * Regla: los componentes usan las clases semánticas de aquí o las utilidades
+ * del @theme (bg-unimayor-900, text-gold…), nunca hex sueltos.
+ * Los hex de `colors` existen solo para contextos sin CSS (SVG inline, canvas).
  */
 
 export const colors = {
   /* ── Institucionales UNIMAYOR ── */
+  unimayor950: '#082e45', // fondos profundos, footer
   unimayor900: '#004884', // títulos, focus, CTA primario
+  unimayor800: '#003b73', // hover de CTA
   unimayor700: '#195a90', // enlaces, acentos
   unimayor600: '#19589f', // bordes institucionales
-  unimayorNav: '#3366cc', // fondo navbar principal
+  unimayorNav: '#3366cc', // azul de navegación del portal
+  unimayor100: '#e6eef6', // superficies suaves
   unimayorTint: '#f8fbfd', // fondos alternos de sección
+
+  /* ── Acento ── */
+  gold: '#f2a900', // barra de títulos del portal
+  goldHover: '#ffab00',
 
   /* ── Neutros ── */
   white: '#FFFFFF',
   ink: '#333030', // texto primario
+  muted: '#52677a', // texto secundario (medido en el portal, 5.6:1 sobre blanco)
   line: '#E4E4E7', // bordes, separadores
 
   /* ── Funcionales ── */
-  error: '#DC2626',
-  success: '#16A34A',
+  error: '#B91C1C',
+  success: '#15803D',
+  warning: '#B45309',
 }
 
 export const font = {
@@ -28,56 +39,75 @@ export const font = {
 
 export const layout = {
   maxWidth: 'max-w-6xl',
-  sectionPadding: 'px-6 py-16 lg:py-24',
-  contentPadding: 'clamp(1.5rem, 5vw, 4rem)',
-  sectionGap: '64px',
-}
-
-export const btn = {
-  base: 'inline-flex items-center justify-center gap-2 border-2 text-xs font-bold tracking-widest uppercase transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer disabled:cursor-not-allowed',
-  primary: `inline-flex items-center justify-center gap-2 border-2 text-xs font-bold tracking-widest uppercase transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer disabled:cursor-not-allowed bg-[#004884] border-[#004884] text-white shadow-[4px_4px_0_#333030] hover:bg-transparent hover:text-[#004884] hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:bg-zinc-200 disabled:border-zinc-200 disabled:text-zinc-400 disabled:shadow-none`,
-  secondary: `inline-flex items-center justify-center gap-2 border-2 text-xs font-bold tracking-widest uppercase transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer disabled:cursor-not-allowed border-[#004884] text-[#004884] hover:bg-[#004884] hover:text-white hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#333030] disabled:border-zinc-200 disabled:text-zinc-400 disabled:shadow-none disabled:hover:bg-transparent`,
-  ghost: `inline-flex items-center justify-center gap-2 border-2 text-xs font-bold tracking-widest uppercase transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer disabled:cursor-not-allowed border-transparent text-[#333030] hover:bg-zinc-100 disabled:text-zinc-400`,
-  sm: 'px-4 py-2 text-[10px]',
-  md: 'px-6 py-3',
-  lg: 'px-8 py-4 text-sm',
-}
-
-export const card = {
-  base: 'border-2 border-[#E4E4E7] bg-white rounded-[10px] transition-all duration-200',
-  hover: 'hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[6px_6px_0_#004884]',
-  evento:
-    'group bg-white ring-2 ring-transparent rounded-[10px] transition-all duration-200 hover:shadow-[4px_4px_0_#004884] hover:ring-[#004884]',
-  proyecto:
-    'group flex flex-col border-2 border-[#E4E4E7] bg-white rounded-[10px] p-6 transition-all duration-200 hover:bg-[#f8fbfd]',
+  container: 'mx-auto w-full max-w-6xl px-4 sm:px-6',
+  sectionPadding: 'py-16 lg:py-24',
 }
 
 export const badge = {
-  base: 'inline-flex items-center px-3 py-1 text-[11px] font-bold tracking-wider uppercase rounded-full',
-  facultad: 'bg-[#f8fbfd] text-[#004884] border border-[#004884]/30',
-  tipoOficial: 'bg-[#004884] text-white',
-  tipoEafi: 'bg-[#195a90] text-white',
-  tipoComunidad: 'bg-white text-[#333030] border-2 border-[#E4E4E7]',
-  estadoPublicado: 'bg-[#16A34A] text-white',
-  estadoRevision: 'bg-amber-100 text-amber-800 border border-amber-300',
-  estadoRechazado: 'bg-[#DC2626] text-white',
+  base: 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase',
+  facultad: 'bg-unimayor-100 text-unimayor-900',
+  tipoOficial: 'bg-unimayor-900 text-white',
+  tipoInstitucional: 'bg-unimayor-900 text-white',
+  tipoEafi: 'bg-gold text-unimayor-950',
+  tipoComunidad: 'bg-white text-ink ring-1 ring-line ring-inset',
+  estadoPublicado: 'bg-success-soft text-success',
+  estadoRevision: 'bg-warning-soft text-warning',
+  estadoRechazado: 'bg-error-soft text-error',
+  estadoBorrador: 'bg-line-soft text-muted',
+  portal: 'bg-unimayor-nav/10 text-unimayor-700',
+}
+
+export const badgeTipo: Record<string, string> = {
+  OFICIAL: badge.tipoOficial,
+  INSTITUCIONAL: badge.tipoInstitucional,
+  EAFI: badge.tipoEafi,
+  COMUNIDAD: badge.tipoComunidad,
+}
+
+export const badgeEstado: Record<string, string> = {
+  PUBLICADO: badge.estadoPublicado,
+  EN_REVISION: badge.estadoRevision,
+  RECHAZADO: badge.estadoRechazado,
+  BORRADOR: badge.estadoBorrador,
+}
+
+export const etiquetaEstado: Record<string, string> = {
+  PUBLICADO: 'Publicado',
+  EN_REVISION: 'En revisión',
+  RECHAZADO: 'Rechazado',
+  BORRADOR: 'Borrador',
+  ELIMINADO: 'Eliminado',
+}
+
+export const etiquetaTipo: Record<string, string> = {
+  INSTITUCIONAL: 'Institucional',
+  EAFI: 'EAFI',
+  COMUNIDAD: 'Comunidad',
+  OFICIAL: 'Oficial',
 }
 
 export const input = {
-  base: 'w-full border-2 bg-white px-4 py-3 text-sm font-medium text-[#333030] outline-none transition-all placeholder:text-zinc-400 rounded-[10px]',
-  border: 'border-[#E4E4E7]',
-  focus: 'focus:border-[#004884] focus:shadow-[3px_3px_0_#004884]',
-  error: 'border-[#DC2626] shadow-[3px_3px_0_#DC2626]',
+  base: 'w-full rounded-box border-2 border-line bg-white px-4 py-3 text-sm font-medium text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted/70 hover:border-unimayor-100 focus:border-unimayor-900 focus:shadow-[0_0_0_4px_rgb(0_72_132/0.12)] disabled:cursor-not-allowed disabled:bg-line-soft disabled:text-muted',
+  error: 'border-error focus:border-error focus:shadow-[0_0_0_4px_rgb(220_38_38/0.12)]',
+  label: 'text-[13px] font-bold text-ink',
+  ayuda: 'text-xs text-muted',
+  mensajeError: 'text-xs font-semibold text-error',
 }
 
 export const eyebrow = {
-  base: 'text-[0.75rem] font-bold tracking-[0.2em] uppercase text-[#195a90]',
-  onDark: 'text-[0.75rem] font-bold tracking-[0.2em] uppercase text-white/80',
+  base: 'text-[0.75rem] font-bold tracking-[0.2em] uppercase text-unimayor-700',
+  onDark: 'text-[0.75rem] font-bold tracking-[0.2em] uppercase text-gold',
 }
 
 export const motion = {
-  fast: 'duration-150',
-  base: 'duration-200',
-  slow: 'duration-300',
-  easing: 'ease-[cubic-bezier(0.2,0,0,1)]',
+  fast: 0.15,
+  base: 0.2,
+  slow: 0.3,
+  /** cubic-bezier(0.16, 1, 0.3, 1) — salida enfática para entradas */
+  easeEmphasis: [0.16, 1, 0.3, 1] as const,
+  easeStandard: [0.2, 0, 0, 1] as const,
+  spring: { type: 'spring', damping: 26, stiffness: 260 } as const,
+  springSoft: { type: 'spring', damping: 24, stiffness: 140 } as const,
+  /** stagger por ítem en grids (DESIGN.md §7: ~80ms, máx ~400ms) */
+  stagger: 0.08,
 }

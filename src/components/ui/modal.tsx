@@ -1,81 +1,90 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { XIcon } from "@/components/icons/x";
+import { BtnIcono } from "@/components/ui/botones";
+import { useAtraparFoco } from "@/components/ui/foco";
+import { cn } from "@/lib/utils";
 
 /**
- * Modal genérico accesible — Vista (capa de Presentación).
- * Backdrop cierra, Escape cierra, bloquea scroll del fondo,
- * mueve el foco al diálogo al abrir y lo devuelve al cerrar.
+ * Modal accesible con presencia animada.
+ * Backdrop y Escape cierran, foco atrapado y devuelto al cerrar,
+ * scroll del fondo bloqueado. Portal al body para escapar de transforms.
  */
 export function Modal({
   abierto,
   onCerrar,
   titulo,
+  descripcion,
   children,
+  ancho = "max-w-2xl",
+  pie,
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  titulo: string;
-  children: React.ReactNode;
+  titulo: ReactNode;
+  descripcion?: ReactNode;
+  children: ReactNode;
+  ancho?: string;
+  pie?: ReactNode;
 }) {
   const tituloId = useId();
-  const dialogoRef = useRef<HTMLDivElement>(null);
-  const previoFoco = useRef<Element | null>(null);
+  const descId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  useAtraparFoco(ref, abierto, onCerrar);
 
-  useEffect(() => {
-    if (!abierto) return;
-    previoFoco.current = document.activeElement;
-    dialogoRef.current?.focus();
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+  if (typeof document === "undefined") return null;
 
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCerrar();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = original;
-      document.removeEventListener("keydown", onKey);
-      if (previoFoco.current instanceof HTMLElement) previoFoco.current.focus();
-    };
-  }, [abierto, onCerrar]);
-
-  if (!abierto || typeof document === "undefined") return null;
-
-  // Portal al body: evita que ancestros con transform/overflow (como la card)
-  // atrapen al fixed dentro de ellos y el modal salga "dentro de la card".
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCerrar();
-      }}
-    >
-      <div
-        ref={dialogoRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={tituloId}
-        tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[10px] border-2 border-[#004884] bg-white p-6 shadow-[6px_6px_0_#004884] outline-none sm:p-8"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={tituloId} className="text-2xl font-extrabold text-[#004884]">
-            {titulo}
-          </h2>
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="shrink-0 border-2 border-[#E4E4E7] px-3 py-2 text-sm font-bold text-[#333030] hover:border-[#004884] hover:text-[#004884]"
+    <AnimatePresence>
+      {abierto && (
+        <motion.div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-unimayor-950/55 backdrop-blur-[3px] sm:items-center sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) onCerrar();
+          }}
+        >
+          <motion.div
+            ref={ref}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={tituloId}
+            aria-describedby={descripcion ? descId : undefined}
+            tabIndex={-1}
+            className={cn(
+              "flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-tile bg-white shadow-pop outline-none sm:rounded-tile",
+              ancho
+            )}
+            initial={{ opacity: 0, y: 32, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
           >
-            ✕
-          </button>
-        </div>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>,
+            <header className="flex items-start justify-between gap-4 border-b border-line-soft px-6 pt-5 pb-4">
+              <div className="min-w-0">
+                <h2 id={tituloId} className="text-xl font-extrabold text-unimayor-900">
+                  {titulo}
+                </h2>
+                {descripcion && (
+                  <p id={descId} className="mt-1 text-sm text-muted">
+                    {descripcion}
+                  </p>
+                )}
+              </div>
+              <BtnIcono icono={XIcon} etiqueta="Cerrar" onClick={onCerrar} className="-mt-1 -mr-2 shrink-0" />
+            </header>
+            <div className="scroll-fino flex-1 overflow-y-auto px-6 py-5">{children}</div>
+            {pie && <footer className="border-t border-line-soft bg-unimayor-tint px-6 py-4">{pie}</footer>}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

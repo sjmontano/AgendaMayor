@@ -1,16 +1,38 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { PublicarForm } from "@/components/proyectos/publicar-form";
+import { EncabezadoSeccion } from "@/components/ui/seccion";
+import { usuarioActual } from "@/lib/sesion-vista";
+import { obtenerPerfilPublico } from "@/modelo/usuarios/usuario.service";
 
-/** Página /proyectos/nuevo — HU-06. Requiere sesión (el API responde 401 si no). */
-export default function NuevoProyectoPage() {
+export const metadata: Metadata = { title: "Publicar proyecto" };
+
+/** /proyectos/nuevo — HU-06. Ruta privada; precarga facultad/programa del perfil. */
+export default async function NuevoProyectoPage() {
+  const usuario = await usuarioActual();
+  if (!usuario) redirect("/ingresar?siguiente=/proyectos/nuevo");
+  const perfil = await obtenerPerfilPublico(usuario.username).catch(() => null);
+
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-xs font-bold tracking-[0.2em] text-[#195a90] uppercase">Vitrina</p>
-      <h1 className="mt-1 text-4xl font-extrabold text-[#004884]">Publicar proyecto</h1>
-      <p className="mt-2 text-sm text-zinc-600">
-        Tu proyecto quedará en revisión hasta que un docente lo avale.
-      </p>
-      <div className="mt-6">
-        <PublicarForm />
+    <div className="bg-unimayor-tint">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
+        <EncabezadoSeccion
+          como="h1"
+          eyebrow="Publicar"
+          titulo="Nuevo proyecto"
+          descripcion="Cuatro pasos y queda en revisión. Puedes salir cuando quieras: guardamos tu borrador."
+        />
+        <div className="mt-8">
+          <PublicarForm
+            autor={{
+              username: usuario.username,
+              nombre: usuario.nombre,
+              apellido: usuario.apellido,
+              facultad: perfil?.facultad ?? usuario.facultad,
+              programa: perfil?.programa ?? null,
+            }}
+          />
+        </div>
       </div>
     </div>
   );
