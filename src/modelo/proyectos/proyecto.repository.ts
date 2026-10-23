@@ -149,6 +149,16 @@ export async function actualizar(id: number, datos: ProyectoUpdateDTO): Promise<
   return aFila(fila);
 }
 
+/** Todos los proyectos del autor (cualquier estado salvo ELIMINADO) — panel del estudiante. */
+export async function listarPorAutor(autorId: number): Promise<ProyectoRow[]> {
+  const filas = await prisma.proyecto.findMany({
+    where: { autor_id: autorId, estado: { not: "ELIMINADO" } },
+    include: INCLUDE_AUTOR,
+    orderBy: [{ fecha_registro: "desc" }, { id_proyecto: "desc" }],
+  });
+  return filas.map(aFila);
+}
+
 export async function contarPorAutor(autorId: number): Promise<number> {
   return prisma.proyecto.count({ where: { autor_id: autorId } });
 }

@@ -13,6 +13,10 @@ export async function listarPublicados(filtros: ProyectoQueryDTO) {
   return repo.listarPublicados(filtros);
 }
 
+export async function listarMios(autorId: number) {
+  return repo.listarPorAutor(autorId);
+}
+
 export async function obtenerPorId(id: number) {
   const proyecto = await repo.buscarPorId(id);
   if (!proyecto) throw notFound('Proyecto no encontrado');

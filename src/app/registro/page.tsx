@@ -1,14 +1,21 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { RegistroForm } from "@/components/auth/registro-form";
+import { MarcoAuth } from "@/components/auth/marco-auth";
+import { usuarioActual } from "@/lib/sesion-vista";
 
-/** Página /registro — HU-01. */
-export default function RegistroPage() {
+export const metadata: Metadata = { title: "Crear cuenta" };
+
+/** Página /registro — HU-01. Con sesión activa redirige al panel. */
+export default async function RegistroPage() {
+  if (await usuarioActual()) redirect("/panel");
   return (
-    <div className="mx-auto max-w-xl px-6 py-12">
-      <p className="text-xs font-bold tracking-[0.2em] text-[#195a90] uppercase">Cuenta UNIMAYOR</p>
-      <h1 className="mt-1 text-4xl font-extrabold text-[#004884]">Crear cuenta</h1>
-      <div className="mt-6">
-        <RegistroForm />
-      </div>
-    </div>
+    <MarcoAuth
+      eyebrow="Únete a la vitrina"
+      titulo="Crea tu cuenta"
+      descripcion="Toma menos de un minuto. Solo necesitas tu correo @unimayor.edu.co."
+    >
+      <RegistroForm />
+    </MarcoAuth>
   );
 }

@@ -25,3 +25,34 @@ Tokens en código: `src/lib/design-tokens.ts` + `@theme` en `src/app/globals.css
 - Integración UNIMAYOR: solo server-side (`src/lib/integraciones/`), nunca desde el cliente.
 
 <!-- END:design-workflow -->
+
+## Herramientas (agentes)
+
+Disco C sin espacio: **todo lo global se instala en `D:\dev\`** y se enlaza (junction) hacia `C:`.
+
+### Skills
+
+| Ámbito | Ubicación | Skills |
+|---|---|---|
+| Global Claude Code | `D:\dev\ai-skills\` → junction en `~/.claude/skills/` | `impeccable` (diseño, auditoría, animación, pulido), `ui-ux-pro-max` (79 estilos, 192 paletas, 74 pares tipográficos, 119 reglas UX), `design-expert`, `taste-design`, `design`, `design-system`, `ui-styling`, `brand`, `graphify`, `paleo-trim-context` |
+| Global Claude Code | `~/.claude/skills/` | `gstack` (suite: qa, review, design-review, ship…), `codebase-memory`, `supabase` |
+| Proyecto (autoskills) | `.claude/skills/` + `.agents/skills/`, lock en `skills-lock.json` | react-best-practices, composition-patterns, next-cache-components-adoption, tailwind-css-patterns, typescript-advanced-types, zod, deploy-to-vercel, nodejs-backend-patterns, nodejs-best-practices, prisma-*, vitest, frontend-design, accessibility, seo |
+| Proyecto (opencode) | `.opencode/skills/` | Mismas temáticas para opencode (`opencode.json`) |
+
+Actualizar skills del stack: `npx autoskills -y -a claude-code`.
+
+### MCP
+
+| Servidor | Uso |
+|---|---|
+| `chrome-devtools` (`--isolated`) | Ver la app en `http://localhost:3001` (dev server ya abierto por el equipo: no correr `npm run dev`), screenshots, Lighthouse, axe, medir estilos del portal unimayor.edu.co |
+| `chrome-devtools-2` (`--browser-url 9222`) | Solo si hay un Chrome con `--remote-debugging-port=9222` |
+| `codebase-memory-mcp` | Grafo del código: buscar símbolos, rutas, llamadas antes de grep |
+| `gbrain` | Memoria persistente entre sesiones. Datos en `D:\dev\gbrain-home` (`GBRAIN_HOME`), CLI en `D:\dev\gbrain` |
+
+### Flujo de diseño recomendado
+
+1. Leer `DESIGN.md` (dirección creativa + tokens + formas del portal + motion).
+2. Diseñar/criticar con `impeccable` o `ui-ux-pro-max`.
+3. Implementar con tokens y `BtnMayor`; animaciones según `DESIGN.md` §7.
+4. Verificar con `chrome-devtools` sobre `localhost:3001` (desktop + 360px, reduced-motion, Lighthouse a11y ≥ 95).

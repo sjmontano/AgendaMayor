@@ -26,7 +26,7 @@ export async function listarPorUsuario(usuarioId: number): Promise<NotificacionR
   const filas = await prisma.notificacion.findMany({
     where: { usuario_id: usuarioId },
     orderBy: { fecha: "desc" },
-    take: 20,
+    take: 50,
     select: {
       id_notificacion: true,
       mensaje: true,
@@ -36,6 +36,14 @@ export async function listarPorUsuario(usuarioId: number): Promise<NotificacionR
     },
   });
   return filas.map((n) => ({ ...n, fecha: n.fecha.toISOString() }));
+}
+
+export async function marcarTodasLeidas(usuarioId: number): Promise<number> {
+  const r = await prisma.notificacion.updateMany({
+    where: { usuario_id: usuarioId, leida: false },
+    data: { leida: true },
+  });
+  return r.count;
 }
 
 export async function marcarLeida(id: number, usuarioId: number): Promise<void> {

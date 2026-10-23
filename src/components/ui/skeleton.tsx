@@ -1,72 +1,112 @@
+import { cn } from "@/lib/utils";
+
 /**
- * Skeletons y loaders — patrón traído de Opera Prima, adaptado a UNIMAYOR.
- * Uso: mostrar mientras Server Components / fetch resuelven.
+ * Skeletons — shimmer institucional (.skeleton en globals.css).
+ * Siempre aria-hidden; la región que carga anuncia el estado con aria-busy
+ * o con el texto visualmente oculto de <Cargando />.
  */
+
+export function Hueso({ className }: { className?: string }) {
+  return <div className={cn("skeleton rounded-md", className)} aria-hidden="true" />;
+}
+
+export function Cargando({ texto = "Cargando contenido" }: { texto?: string }) {
+  return (
+    <p className="sr-only" role="status">
+      {texto}
+    </p>
+  );
+}
 
 export function SkeletonCard() {
   return (
-    <div className="space-y-3" aria-hidden="true">
-      <div className="h-32 w-full animate-pulse rounded-[10px] bg-zinc-200" />
-      <div className="h-4 w-3/4 animate-pulse rounded bg-zinc-200" />
-      <div className="h-3 w-1/2 animate-pulse rounded bg-zinc-200" />
+    <div className="overflow-hidden rounded-tile border border-line bg-white" aria-hidden="true">
+      <Hueso className="aspect-[16/10] w-full rounded-none" />
+      <div className="space-y-3 p-5">
+        <div className="flex gap-2">
+          <Hueso className="h-5 w-20 rounded-full" />
+          <Hueso className="h-5 w-16 rounded-full" />
+        </div>
+        <Hueso className="h-5 w-4/5" />
+        <Hueso className="h-3.5 w-full" />
+        <Hueso className="h-3.5 w-2/3" />
+        <div className="flex items-center gap-2 pt-2">
+          <Hueso className="size-7 rounded-full" />
+          <Hueso className="h-3 w-28" />
+        </div>
+      </div>
     </div>
-  )
+  );
 }
 
 export function SkeletonGrid({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
-      {Array.from({ length: count }, (_, i) => (
-        <SkeletonCard key={i} />
-      ))}
-    </div>
-  )
+    <>
+      <Cargando />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+        {Array.from({ length: count }, (_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+    </>
+  );
 }
 
 export function SkeletonText({ lines = 4 }: { lines?: number }) {
   return (
-    <div className="space-y-2" aria-hidden="true">
+    <div className="space-y-2.5" aria-hidden="true">
       {Array.from({ length: lines }, (_, i) => (
-        <div
-          key={i}
-          className="h-3 animate-pulse rounded bg-zinc-200"
-          style={{ width: `${55 + i * 10}%` }}
-        />
+        <Hueso key={i} className="h-3.5" />
       ))}
     </div>
-  )
+  );
 }
 
 export function SkeletonHero() {
   return (
-    <section className="w-full bg-[#004884]" aria-hidden="true">
-      <div className="mx-auto max-w-6xl px-6 pt-10 pb-12 lg:pb-16">
-        <div className="flex items-start justify-between gap-8">
-          <div className="min-w-0 flex-1 space-y-4">
-            <div className="h-3 w-28 animate-pulse rounded bg-white/40" />
-            <div className="h-12 w-3/4 animate-pulse rounded bg-white/40" />
-            <div className="h-4 w-1/3 animate-pulse rounded bg-white/40" />
-          </div>
-          <div className="hidden size-40 shrink-0 animate-pulse rounded-[10px] bg-white/30 sm:block" />
+    <section className="w-full bg-unimayor-900" aria-hidden="true">
+      <div className="mx-auto max-w-6xl px-4 pt-14 pb-16 sm:px-6">
+        <div className="max-w-2xl space-y-4">
+          <div className="skeleton-dark h-3 w-28 rounded" />
+          <div className="skeleton-dark h-12 w-3/4 rounded-lg" />
+          <div className="skeleton-dark h-4 w-1/2 rounded" />
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 export function SkeletonBadge() {
-  return <div className="inline-block h-6 w-20 animate-pulse rounded-full bg-zinc-200" aria-hidden="true" />
+  return <Hueso className="inline-block h-6 w-20 rounded-full" />;
 }
 
-export function LoadingButton({ label = 'Cargando' }: { label?: string }) {
+export function SkeletonLista({ filas = 4 }: { filas?: number }) {
   return (
-    <button
-      type="button"
-      disabled
-      className="inline-flex cursor-not-allowed items-center gap-2 border-2 border-zinc-200 bg-zinc-100 px-6 py-3 text-xs font-bold tracking-widest text-zinc-400 uppercase"
-    >
-      <span className="size-3.5 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" aria-hidden="true" />
-      {label}
-    </button>
-  )
+    <ul className="space-y-3" aria-hidden="true">
+      {Array.from({ length: filas }, (_, i) => (
+        <li key={i} className="flex items-center gap-3">
+          <Hueso className="size-10 rounded-box" />
+          <div className="flex-1 space-y-2">
+            <Hueso className="h-3.5 w-3/4" />
+            <Hueso className="h-3 w-1/3" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function SkeletonBento() {
+  return (
+    <>
+      <Cargando texto="Cargando tu panel" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
+        <Hueso className="h-52 rounded-tile sm:col-span-2" />
+        <Hueso className="h-52 rounded-tile" />
+        <Hueso className="h-52 rounded-tile" />
+        <Hueso className="h-72 rounded-tile sm:col-span-2" />
+        <Hueso className="h-72 rounded-tile sm:col-span-2" />
+      </div>
+    </>
+  );
 }
