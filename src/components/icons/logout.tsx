@@ -12,7 +12,7 @@ export interface LogoutIconHandle {
   stopAnimation: () => void;
 }
 
-interface LogoutIconProps extends HTMLAttributes<HTMLDivElement> {
+interface LogoutIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -41,7 +41,7 @@ const LogoutIcon = forwardRef<LogoutIconHandle, LogoutIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -52,7 +52,7 @@ const LogoutIcon = forwardRef<LogoutIconHandle, LogoutIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -63,8 +63,8 @@ const LogoutIcon = forwardRef<LogoutIconHandle, LogoutIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -95,7 +95,7 @@ const LogoutIcon = forwardRef<LogoutIconHandle, LogoutIconProps>(
             y2="12"
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

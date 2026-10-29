@@ -119,6 +119,8 @@ describe("vista pública de una orden", () => {
       stripe_session_id: "cs_test_123",
       stripe_payment_intent_id: "pi_test_123",
       metodo_pago: "card",
+      pasarela: "STRIPE",
+      pasarela_referencia: null,
       expira_en: "2026-11-10T18:40:00.000Z",
       pagada_en: null,
       reembolsada_en: null,

@@ -12,7 +12,7 @@ export interface CloudUploadIconHandle {
   stopAnimation: () => void;
 }
 
-interface CloudUploadIconProps extends HTMLAttributes<HTMLDivElement> {
+interface CloudUploadIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -35,7 +35,7 @@ const CloudUploadIcon = forwardRef<CloudUploadIconHandle, CloudUploadIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -46,7 +46,7 @@ const CloudUploadIcon = forwardRef<CloudUploadIconHandle, CloudUploadIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -57,8 +57,8 @@ const CloudUploadIcon = forwardRef<CloudUploadIconHandle, CloudUploadIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -87,7 +87,7 @@ const CloudUploadIcon = forwardRef<CloudUploadIconHandle, CloudUploadIconProps>(
             <path d="m8 17 4-4 4 4" />
           </motion.g>
         </svg>
-      </div>
+      </span>
     );
   }
 );

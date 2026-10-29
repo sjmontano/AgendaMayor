@@ -12,7 +12,7 @@ export interface UserPlusIconHandle {
   stopAnimation: () => void;
 }
 
-interface UserPlusIconProps extends HTMLAttributes<HTMLDivElement> {
+interface UserPlusIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -54,7 +54,7 @@ const UserPlusIcon = forwardRef<UserPlusIconHandle, UserPlusIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -65,7 +65,7 @@ const UserPlusIcon = forwardRef<UserPlusIconHandle, UserPlusIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -76,8 +76,8 @@ const UserPlusIcon = forwardRef<UserPlusIconHandle, UserPlusIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -105,7 +105,7 @@ const UserPlusIcon = forwardRef<UserPlusIconHandle, UserPlusIconProps>(
             <line x1="22" x2="16" y1="11" y2="11" />
           </motion.g>
         </svg>
-      </div>
+      </span>
     );
   }
 );

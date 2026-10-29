@@ -12,7 +12,7 @@ export interface XIconHandle {
   stopAnimation: () => void;
 }
 
-interface XIconProps extends HTMLAttributes<HTMLDivElement> {
+interface XIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -42,7 +42,7 @@ const XIcon = forwardRef<XIconHandle, XIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -53,7 +53,7 @@ const XIcon = forwardRef<XIconHandle, XIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -63,8 +63,8 @@ const XIcon = forwardRef<XIconHandle, XIconProps>(
       [controls, onMouseLeave]
     );
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -92,7 +92,7 @@ const XIcon = forwardRef<XIconHandle, XIconProps>(
             variants={PATH_VARIANTS}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

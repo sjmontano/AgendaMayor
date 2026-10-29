@@ -15,7 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { Vacio } from "@/components/ui/vacio";
 import { PortadaProyecto, type ProyectoCardData } from "@/components/vitrina/proyecto-card";
-import { apiPatch } from "@/lib/api";
+import { apiPatch, mensajeDeError } from "@/lib/api";
 import { cn, tiempoRelativo } from "@/lib/utils";
 
 /**
@@ -48,7 +48,7 @@ export function ColaRevision({ pendientes: iniciales }: { pendientes: ProyectoCa
       toast.exito("Proyecto publicado", `“${p.titulo}” ya está en la vitrina.`);
       router.refresh();
     } catch (e) {
-      toast.error("No se pudo aprobar", e instanceof Error ? e.message : undefined);
+      toast.error("No se pudo aprobar", mensajeDeError(e));
     } finally {
       setProcesando(null);
     }
@@ -69,7 +69,7 @@ export function ColaRevision({ pendientes: iniciales }: { pendientes: ProyectoCa
       setMotivo("");
       router.refresh();
     } catch (e) {
-      toast.error("No se pudo rechazar", e instanceof Error ? e.message : undefined);
+      toast.error("No se pudo rechazar", mensajeDeError(e));
     } finally {
       setProcesando(null);
     }

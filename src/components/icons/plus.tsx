@@ -11,7 +11,7 @@ export interface PlusIconHandle {
   stopAnimation: () => void;
 }
 
-interface PlusIconProps extends HTMLAttributes<HTMLDivElement> {
+interface PlusIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -30,7 +30,7 @@ const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -41,7 +41,7 @@ const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -52,8 +52,8 @@ const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -82,7 +82,7 @@ const PlusIcon = forwardRef<PlusIconHandle, PlusIconProps>(
           <path d="M5 12h14" />
           <path d="M12 5v14" />
         </motion.svg>
-      </div>
+      </span>
     );
   }
 );

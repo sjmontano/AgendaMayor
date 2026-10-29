@@ -219,6 +219,10 @@ model Orden {
   stripe_session_id        String?   @unique @db.VarChar(255)
   stripe_payment_intent_id String?   @db.VarChar(255)
   metodo_pago              String?   @db.VarChar(30)
+  /// Pasarela elegida por el comprador: STRIPE | WOMPI | BOLD
+  pasarela                 String    @default("STRIPE") @db.VarChar(12)
+  /// Id externo del cobro (transacción Wompi o link Bold)
+  pasarela_referencia      String?   @db.VarChar(255)
   ip                       String?   @db.VarChar(64)
   expira_en                DateTime  @db.Timestamptz(6)
   pagada_en                DateTime? @db.Timestamptz(6)
@@ -231,8 +235,10 @@ model Orden {
   items         OrdenItem[]
   entradas      Entrada[]
   eventosStripe StripeEvento[]
+  eventosPago   PagoEvento[]
 
   @@index([evento_id])
+  @@index([pasarela_referencia])
   @@index([correo_comprador])
   @@index([estado])
   @@index([creada_en])
@@ -298,4 +304,21 @@ model StripeEvento {
 
   @@index([orden_id])
   @@map("stripe_evento")
+}
+
+/// Notificación recibida de Wompi o Bold (idempotencia y auditoría).
+model PagoEvento {
+  id_pago_evento    Int      @id @default(autoincrement())
+  pasarela          String   @db.VarChar(12)
+  evento_externo_id String   @db.VarChar(255)
+  tipo              String   @db.VarChar(80)
+  orden_id          Int?
+  payload           Json
+  recibido_en       DateTime @default(now()) @db.Timestamptz(6)
+
+  orden Orden? @relation(fields: [orden_id], references: [id_orden], onDelete: SetNull)
+
+  @@unique([pasarela, evento_externo_id])
+  @@index([orden_id])
+  @@map("pago_evento")
 }

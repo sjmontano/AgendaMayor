@@ -17,7 +17,7 @@ export interface IconoHandle {
 }
 
 export type IconoAnimado = ForwardRefExoticComponent<
-  HTMLAttributes<HTMLDivElement> & { size?: number } & RefAttributes<IconoHandle>
+  HTMLAttributes<HTMLSpanElement> & { size?: number } & RefAttributes<IconoHandle>
 >;
 
 export function useIcono() {

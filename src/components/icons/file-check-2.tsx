@@ -12,7 +12,7 @@ export interface FileCheck2IconHandle {
   stopAnimation: () => void;
 }
 
-interface FileCheck2IconProps extends HTMLAttributes<HTMLDivElement> {
+interface FileCheck2IconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -49,7 +49,7 @@ const FileCheck2Icon = forwardRef<FileCheck2IconHandle, FileCheck2IconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -60,7 +60,7 @@ const FileCheck2Icon = forwardRef<FileCheck2IconHandle, FileCheck2IconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -71,8 +71,8 @@ const FileCheck2Icon = forwardRef<FileCheck2IconHandle, FileCheck2IconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -98,7 +98,7 @@ const FileCheck2Icon = forwardRef<FileCheck2IconHandle, FileCheck2IconProps>(
             variants={CHECK_VARIANTS}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

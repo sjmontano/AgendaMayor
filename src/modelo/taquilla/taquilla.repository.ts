@@ -109,6 +109,8 @@ export interface OrdenDetalleRow {
   stripe_session_id: string | null;
   stripe_payment_intent_id: string | null;
   metodo_pago: string | null;
+  pasarela: string;
+  pasarela_referencia: string | null;
   expira_en: string;
   pagada_en: string | null;
   reembolsada_en: string | null;
@@ -152,6 +154,8 @@ function aOrden(o: OrdenConRelaciones): OrdenDetalleRow {
     stripe_session_id: o.stripe_session_id,
     stripe_payment_intent_id: o.stripe_payment_intent_id,
     metodo_pago: o.metodo_pago,
+    pasarela: o.pasarela,
+    pasarela_referencia: o.pasarela_referencia,
     expira_en: o.expira_en.toISOString(),
     pagada_en: o.pagada_en?.toISOString() ?? null,
     reembolsada_en: o.reembolsada_en?.toISOString() ?? null,
@@ -675,5 +679,66 @@ export async function registrarEventoStripe(
     // P2002 = otro proceso ya lo registró; es idempotente.
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return;
     throw e;
+  }
+}
+
+/* ── Pasarelas Wompi / Bold ─────────────────────────────────── */
+
+export async function guardarPasarela(
+  ordenId: number,
+  pasarela: string,
+  referencia: string | null
+): Promise<void> {
+  await prisma.orden.update({
+    where: { id_orden: ordenId },
+    data: {
+      pasarela,
+      pasarela_referencia: referencia,
+      ...(pasarela === "STRIPE" && referencia ? { stripe_session_id: referencia } : {}),
+    },
+  });
+}
+
+/** Guarda el id de transacción que la pasarela devolvió al retornar (si aún no hay). */
+export async function guardarReferenciaSiFalta(ordenId: number, referencia: string): Promise<void> {
+  await prisma.orden.updateMany({
+    where: { id_orden: ordenId, pasarela_referencia: null },
+    data: { pasarela_referencia: referencia },
+  });
+}
+
+export async function obtenerOrdenPorReferenciaPasarela(
+  pasarela: string,
+  referencia: string
+): Promise<OrdenDetalleRow | null> {
+  const fila = await prisma.orden.findFirst({
+    where: { pasarela, pasarela_referencia: referencia },
+    include: ordenInclude,
+  });
+  return fila ? aOrden(fila) : null;
+}
+
+export async function pagoEventoExiste(pasarela: string, eventoExternoId: string): Promise<boolean> {
+  const fila = await prisma.pagoEvento.findUnique({
+    where: { pasarela_evento_externo_id: { pasarela, evento_externo_id: eventoExternoId } },
+    select: { id_pago_evento: true },
+  });
+  return Boolean(fila);
+}
+
+export async function registrarPagoEvento(
+  pasarela: string,
+  eventoExternoId: string,
+  tipo: string,
+  ordenId: number | null,
+  payload: Prisma.InputJsonValue
+): Promise<void> {
+  try {
+    await prisma.pagoEvento.create({
+      data: { pasarela, evento_externo_id: eventoExternoId, tipo, orden_id: ordenId, payload },
+    });
+  } catch (e) {
+    // Un duplicado concurrente ya quedó registrado: no es un error.
+    if ((e as { code?: string }).code !== "P2002") throw e;
   }
 }

@@ -12,7 +12,7 @@ export interface StampIconHandle {
   stopAnimation: () => void;
 }
 
-interface StampIconProps extends HTMLAttributes<HTMLDivElement> {
+interface StampIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -63,7 +63,7 @@ const StampIcon = forwardRef<StampIconHandle, StampIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -74,7 +74,7 @@ const StampIcon = forwardRef<StampIconHandle, StampIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -85,8 +85,8 @@ const StampIcon = forwardRef<StampIconHandle, StampIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -122,7 +122,7 @@ const StampIcon = forwardRef<StampIconHandle, StampIconProps>(
             variants={INK_VARIANTS}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

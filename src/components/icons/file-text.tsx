@@ -12,7 +12,7 @@ export interface FileTextIconHandle {
   stopAnimation: () => void;
 }
 
-interface FileTextIconProps extends HTMLAttributes<HTMLDivElement> {
+interface FileTextIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -31,7 +31,7 @@ const FILE_TEXT = forwardRef<FileTextIconHandle, FileTextIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -42,7 +42,7 @@ const FILE_TEXT = forwardRef<FileTextIconHandle, FileTextIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -53,8 +53,8 @@ const FILE_TEXT = forwardRef<FileTextIconHandle, FileTextIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -149,7 +149,7 @@ const FILE_TEXT = forwardRef<FileTextIconHandle, FileTextIconProps>(
             }}
           />
         </motion.svg>
-      </div>
+      </span>
     );
   }
 );

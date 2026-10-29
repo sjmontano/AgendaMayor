@@ -12,7 +12,7 @@ export interface EyeOffIconHandle {
   stopAnimation: () => void;
 }
 
-interface EyeOffIconProps extends HTMLAttributes<HTMLDivElement> {
+interface EyeOffIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -41,7 +41,7 @@ const EyeOffIcon = forwardRef<EyeOffIconHandle, EyeOffIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -52,7 +52,7 @@ const EyeOffIcon = forwardRef<EyeOffIconHandle, EyeOffIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -63,8 +63,8 @@ const EyeOffIcon = forwardRef<EyeOffIconHandle, EyeOffIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -89,7 +89,7 @@ const EyeOffIcon = forwardRef<EyeOffIconHandle, EyeOffIconProps>(
             variants={PATH_VARIANTS}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

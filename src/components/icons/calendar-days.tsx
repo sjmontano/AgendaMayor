@@ -12,7 +12,7 @@ export interface CalendarDaysIconHandle {
   stopAnimation: () => void;
 }
 
-interface CalendarDaysIconProps extends HTMLAttributes<HTMLDivElement> {
+interface CalendarDaysIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -58,7 +58,7 @@ const CalendarDaysIcon = forwardRef<
   });
 
   const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseEnter?.(e);
       } else {
@@ -69,7 +69,7 @@ const CalendarDaysIcon = forwardRef<
   );
 
   const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseLeave?.(e);
       } else {
@@ -80,8 +80,8 @@ const CalendarDaysIcon = forwardRef<
   );
 
   return (
-    <div
-      className={cn(className)}
+    <span
+      className={cn("inline-flex shrink-0", className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       {...props}
@@ -118,7 +118,7 @@ const CalendarDaysIcon = forwardRef<
           ))}
         </AnimatePresence>
       </svg>
-    </div>
+    </span>
   );
 });
 

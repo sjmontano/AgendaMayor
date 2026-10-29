@@ -12,7 +12,7 @@ export interface BookmarkCheckIconHandle {
   stopAnimation: () => void;
 }
 
-interface BookmarkCheckIconProps extends HTMLAttributes<HTMLDivElement> {
+interface BookmarkCheckIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -56,7 +56,7 @@ const BookmarkCheckIcon = forwardRef<
   });
 
   const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseEnter?.(e);
       } else {
@@ -67,7 +67,7 @@ const BookmarkCheckIcon = forwardRef<
   );
 
   const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseLeave?.(e);
       } else {
@@ -78,8 +78,8 @@ const BookmarkCheckIcon = forwardRef<
   );
 
   return (
-    <div
-      className={cn(className)}
+    <span
+      className={cn("inline-flex shrink-0", className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       {...props}
@@ -111,7 +111,7 @@ const BookmarkCheckIcon = forwardRef<
           variants={CHECK_VARIANTS}
         />
       </svg>
-    </div>
+    </span>
   );
 });
 

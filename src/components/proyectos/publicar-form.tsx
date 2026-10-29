@@ -11,7 +11,7 @@ import { BtnMayor, BtnIcono } from "@/components/ui/botones";
 import { Campo, CampoArea, CampoSelect } from "@/components/ui/campo";
 import { useToast } from "@/components/ui/toast";
 import { ProyectoCard, type ProyectoCardData } from "@/components/vitrina/proyecto-card";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, mensajeDeError } from "@/lib/api";
 import { FACULTADES, facultadProgramas } from "@/lib/facultades";
 import { cn } from "@/lib/utils";
 
@@ -207,7 +207,7 @@ export function PublicarForm({ autor }: { autor: Autor }) {
       setExito(r.id_proyecto);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
-      toast.error("No pudimos enviar tu proyecto", e instanceof Error ? e.message : undefined);
+      toast.error("No pudimos enviar tu proyecto", mensajeDeError(e));
     } finally {
       setEnviando(false);
     }

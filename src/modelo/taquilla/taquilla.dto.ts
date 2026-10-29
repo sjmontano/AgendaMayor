@@ -18,6 +18,8 @@ export const CheckoutSchema = z.object({
     .max(30)
     .optional()
     .transform((v) => v || undefined),
+  /** Pasarela elegida por el comprador (Strategy en lib/integraciones/pasarelas). */
+  pasarela: z.enum(["STRIPE", "WOMPI", "BOLD"]).default("STRIPE"),
   aceptaDatos: z.boolean().refine((v) => v === true, {
     message: "Debes aceptar el tratamiento de datos para continuar",
   }),

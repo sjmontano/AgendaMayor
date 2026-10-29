@@ -12,7 +12,7 @@ export interface ChartPieIconHandle {
   stopAnimation: () => void;
 }
 
-interface ChartPieIconProps extends HTMLAttributes<HTMLDivElement> {
+interface ChartPieIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -36,7 +36,7 @@ const ChartPieIcon = forwardRef<ChartPieIconHandle, ChartPieIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -47,7 +47,7 @@ const ChartPieIcon = forwardRef<ChartPieIconHandle, ChartPieIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -58,8 +58,8 @@ const ChartPieIcon = forwardRef<ChartPieIconHandle, ChartPieIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -88,7 +88,7 @@ const ChartPieIcon = forwardRef<ChartPieIconHandle, ChartPieIconProps>(
           />
           <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
         </svg>
-      </div>
+      </span>
     );
   }
 );

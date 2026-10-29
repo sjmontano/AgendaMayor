@@ -12,7 +12,7 @@ export interface UserIconHandle {
   stopAnimation: () => void;
 }
 
-interface UserIconProps extends HTMLAttributes<HTMLDivElement> {
+interface UserIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -53,7 +53,7 @@ const UserIcon = forwardRef<UserIconHandle, UserIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -64,7 +64,7 @@ const UserIcon = forwardRef<UserIconHandle, UserIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -74,8 +74,8 @@ const UserIcon = forwardRef<UserIconHandle, UserIconProps>(
       [controls, onMouseLeave]
     );
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -109,7 +109,7 @@ const UserIcon = forwardRef<UserIconHandle, UserIconProps>(
             variants={PATH_VARIANT}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { LogInIcon as LoginIcon } from "@/components/icons/login";
 import { BtnMayor } from "@/components/ui/botones";
 import { Campo, CampoClave } from "@/components/ui/campo";
-import { apiPost } from "@/lib/api";
+import { apiPost, mensajeDeError } from "@/lib/api";
 
 /**
  * Formulario de ingreso (HU-02) — POST /api/auth/login.
@@ -48,7 +48,7 @@ export function IngresoForm() {
       router.push(destinoSeguro(params.get("siguiente")));
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos iniciar sesión");
+      setError(mensajeDeError(err, "No pudimos iniciar sesión. Inténtalo de nuevo."));
       void temblor.start({ x: [0, -8, 8, -5, 5, 0], transition: { duration: 0.4 } });
       setCargando(false);
     }

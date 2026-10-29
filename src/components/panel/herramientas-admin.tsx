@@ -10,7 +10,7 @@ import { BtnMayor } from "@/components/ui/botones";
 import { Campo } from "@/components/ui/campo";
 import { SkeletonLista } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, mensajeDeError } from "@/lib/api";
 import { input } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ export function ImportarRss() {
       toast.exito("Importación completa", `${r.creados} eventos nuevos desde el portal.`);
       router.refresh();
     } catch (e) {
-      toast.error("No se pudo importar", e instanceof Error ? e.message : undefined);
+      toast.error("No se pudo importar", mensajeDeError(e));
     } finally {
       setCargando(false);
     }
@@ -128,7 +128,7 @@ export function GestionPuestos() {
       setFormAbierto(false);
       void recargar();
     } catch (err) {
-      toast.error("No se pudo crear el puesto", err instanceof Error ? err.message : undefined);
+      toast.error("No se pudo crear el puesto", mensajeDeError(err));
     } finally {
       setCreando(false);
     }
@@ -140,7 +140,7 @@ export function GestionPuestos() {
       toast.exito(ok);
       void recargar();
     } catch (err) {
-      toast.error("No se pudo completar", err instanceof Error ? err.message : undefined);
+      toast.error("No se pudo completar", mensajeDeError(err));
     }
   }
 

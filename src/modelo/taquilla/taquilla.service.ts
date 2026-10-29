@@ -3,7 +3,8 @@ import { badRequest, conflict, forbidden, internal, notFound, serviceUnavailable
 import { hashToken, codigoPublico, tokenSeguro } from "@/lib/codigos";
 import { fechaHoraLarga } from "@/lib/utils";
 import type { UsuarioAuth } from "@/lib/auth";
-import { crearSesionCheckout, reembolsarPago, stripeConfigurado } from "@/lib/integraciones/stripe";
+import { reembolsarPago, stripeConfigurado } from "@/lib/integraciones/stripe";
+import { obtenerPasarela, type PasarelaId } from "@/lib/integraciones/pasarelas";
 import { obtenerPorId } from "@/modelo/eventos/evento.repository";
 import { puedeGestionarEvento } from "@/modelo/eventos/evento.service";
 import type { CheckoutDTO } from "./taquilla.dto";
@@ -88,10 +89,9 @@ export async function crearCheckout(
     };
   }
 
-  if (!stripeConfigurado()) {
-    throw serviceUnavailable(
-      "Los pagos con Stripe aún no están configurados. Agrega STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET al .env y reinicia el servidor."
-    );
+  const pasarela = obtenerPasarela(datos.pasarela as PasarelaId);
+  if (!pasarela.configurada()) {
+    throw serviceUnavailable(`Los pagos con ${pasarela.nombre} no están configurados en este momento. Elige otro método de pago.`);
   }
 
   const orden = await repo.reservarYCrearOrden({
@@ -111,15 +111,66 @@ export async function crearCheckout(
   });
 
   try {
-    const sesion = await crearSesionCheckout({ baseUrl: base, orden, token, minutos: 30 });
-    if (!sesion.url) throw internal("Stripe no devolvió la URL de pago");
-    await repo.guardarSesionStripe(orden.id_orden, sesion.id);
-    return { orden, gratis: false, url: sesion.url };
+    const urlRetorno = `${base}/checkout/resultado?orden=${encodeURIComponent(orden.codigo)}&token=${encodeURIComponent(token)}`;
+    const pago = await pasarela.crearPago({
+      orden,
+      baseUrl: base,
+      token,
+      urlRetorno,
+      urlCancelar: `${base}/eventos/${orden.evento_id}?pago=cancelado`,
+      minutos: 30,
+    });
+    await repo.guardarPasarela(orden.id_orden, pasarela.id, pago.referencia);
+    return { orden, gratis: false, url: pago.url };
   } catch (e) {
-    // Si Stripe falla, liberamos de inmediato el cupo reservado.
+    // Si la pasarela falla, liberamos de inmediato el cupo reservado.
     await repo.liberarOrden(orden.id_orden, "CANCELADA");
     throw e;
   }
+}
+
+/**
+ * Conciliación (Wompi / Bold, y respaldo de Stripe): pregunta a la pasarela
+ * el estado real de una orden PENDIENTE y lo aplica. Idempotente: si ya
+ * estaba pagada no hace nada. La disparan el webhook y la pantalla de resultado.
+ */
+export async function conciliarOrden(
+  orden: repo.OrdenDetalleRow,
+  pistaTransaccion?: string | null
+): Promise<repo.OrdenDetalleRow> {
+  if (orden.estado !== "PENDIENTE" || orden.total_centavos === 0) return orden;
+  const pasarela = obtenerPasarela((orden.pasarela ?? "STRIPE") as PasarelaId);
+  if (!pasarela.configurada()) return orden;
+
+  let referencia = orden.pasarela_referencia ?? null;
+  if (!referencia && pistaTransaccion && pasarela.id === "WOMPI") {
+    await repo.guardarReferenciaSiFalta(orden.id_orden, pistaTransaccion);
+    referencia = pistaTransaccion;
+  }
+
+  const resultado = await pasarela
+    .consultarPago({ codigo: orden.codigo, pasarela_referencia: referencia })
+    .catch((e) => {
+      console.error(`[${pasarela.id}] consulta falló`, e);
+      return null;
+    });
+  if (!resultado) return orden;
+
+  if (resultado.estado === "APROBADO") {
+    if (resultado.transaccionId && pasarela.id === "WOMPI") {
+      await repo.guardarReferenciaSiFalta(orden.id_orden, resultado.transaccionId);
+    }
+    return repo.marcarOrdenPagada({
+      ordenId: orden.id_orden,
+      stripePaymentIntentId: pasarela.id === "STRIPE" ? resultado.transaccionId : undefined,
+      metodoPago: `${pasarela.id}:${resultado.metodo ?? "desconocido"}`.slice(0, 30),
+    });
+  }
+  if (resultado.estado === "RECHAZADO" || resultado.estado === "EXPIRADO") {
+    await repo.liberarOrden(orden.id_orden, resultado.estado === "RECHAZADO" ? "FALLIDA" : "EXPIRADA");
+    return (await repo.obtenerOrdenPorId(orden.id_orden)) ?? orden;
+  }
+  return orden;
 }
 
 async function ordenDeSesion(session: Stripe.Checkout.Session) {
@@ -200,7 +251,9 @@ export async function procesarReembolsoStripe(
 export async function obtenerOrdenParaVer(
   codigo: string,
   token: string | null,
-  usuario: UsuarioAuth | null
+  usuario: UsuarioAuth | null,
+  /** Id de transacción que la pasarela añade al volver (Wompi: ?id=). */
+  pistaTransaccion?: string | null
 ): Promise<repo.OrdenDetalleRow> {
   const orden = await repo.obtenerOrdenPorCodigo(codigo);
   if (!orden) throw notFound("Orden no encontrada");
@@ -216,7 +269,7 @@ export async function obtenerOrdenParaVer(
     : false;
 
   if (!porToken && !porSesion) throw notFound("Orden no encontrada");
-  return orden;
+  return conciliarOrden(orden, pistaTransaccion);
 }
 
 export async function listarMisEntradas(usuario: UsuarioAuth): Promise<repo.OrdenDetalleRow[]> {

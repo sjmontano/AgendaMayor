@@ -12,7 +12,7 @@ export interface ClockIconHandle {
   stopAnimation: () => void;
 }
 
-interface ClockIconProps extends HTMLAttributes<HTMLDivElement> {
+interface ClockIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -67,7 +67,7 @@ const ClockIcon = forwardRef<ClockIconHandle, ClockIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -78,7 +78,7 @@ const ClockIcon = forwardRef<ClockIconHandle, ClockIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -89,8 +89,8 @@ const ClockIcon = forwardRef<ClockIconHandle, ClockIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -128,7 +128,7 @@ const ClockIcon = forwardRef<ClockIconHandle, ClockIconProps>(
             y2="12"
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

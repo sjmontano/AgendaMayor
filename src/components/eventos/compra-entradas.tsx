@@ -7,6 +7,7 @@ import { ClockIcon } from "@/components/icons/clock";
 import { BtnMayor } from "@/components/ui/botones";
 import { Campo } from "@/components/ui/campo";
 import { ApiHttpError, apiPost } from "@/lib/api";
+import { SelectorPasarela, type PasarelaId } from "@/components/eventos/selector-pasarela";
 import { cn, fechaHoraLarga, formatearCentavos } from "@/lib/utils";
 
 export interface TipoEntradaVenta {
@@ -29,6 +30,8 @@ interface Props {
 }
 
 type ResultadoCheckout = { url: string; gratis: boolean; codigo: string };
+
+const NOMBRE_PASARELA: Record<PasarelaId, string> = { STRIPE: "Stripe", WOMPI: "Wompi", BOLD: "Bold" };
 
 /**
  * Panel de compra. El precio y el cupo vienen del servidor; aquí solo se
@@ -55,6 +58,7 @@ export function CompraEntradas({
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [pasarela, setPasarela] = useState<PasarelaId | null>(null);
 
   const tipo = tipos.find((t) => t.id_tipo_entrada === tipoId) ?? tipos[0];
   const ahora = new Date();
@@ -77,6 +81,7 @@ export function CompraEntradas({
     if (nombre.trim().length < 3) nuevos.nombre = "Escribe tu nombre completo.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) nuevos.correo = "Escribe un correo válido.";
     if (!aceptaDatos) nuevos.acepta = "Debes aceptar el tratamiento de datos.";
+    if (total > 0 && !pasarela) nuevos.pasarela = "Elige un método de pago.";
     setErrores(nuevos);
     if (Object.keys(nuevos).length > 0 || !tipo) return;
 
@@ -91,6 +96,7 @@ export function CompraEntradas({
         documento: documento.trim() || undefined,
         telefono: telefono.trim() || undefined,
         aceptaDatos: true,
+        ...(total > 0 && pasarela ? { pasarela } : {}),
       });
       window.location.assign(resultado.url);
     } catch (err) {
@@ -287,6 +293,17 @@ export function CompraEntradas({
             </p>
           )}
 
+          {total > 0 && (
+            <div className="mt-5">
+              <SelectorPasarela valor={pasarela} onCambio={setPasarela} />
+              {errores.pasarela && (
+                <p role="alert" className="mt-1 text-xs font-bold text-error">
+                  {errores.pasarela}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-5 flex items-baseline justify-between gap-3 rounded-box bg-unimayor-tint px-4 py-3">
             <span className="text-sm font-bold text-ink">Total</span>
             <span className="text-xl font-extrabold text-unimayor-900">
@@ -308,7 +325,7 @@ export function CompraEntradas({
             icono={ArrowRightIcon}
             className="mt-4"
           >
-            {total === 0 ? "Reservar entrada gratis" : "Pagar con Stripe"}
+            {total === 0 ? "Reservar entrada gratis" : `Pagar con ${NOMBRE_PASARELA[pasarela ?? "STRIPE"]}`}
           </BtnMayor>
 
           <div className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted">
@@ -316,7 +333,7 @@ export function CompraEntradas({
             <span>
               {total === 0
                 ? "La reserva se confirma de inmediato y verás tus entradas con código QR."
-                : "Serás redirigido a Stripe Checkout. No almacenamos los datos de tu tarjeta."}
+                : `Serás redirigido a la página segura de ${NOMBRE_PASARELA[pasarela ?? "STRIPE"]}. No almacenamos los datos de tu tarjeta ni de tu banco.`}
             </span>
           </div>
 
@@ -331,7 +348,7 @@ export function CompraEntradas({
 
       <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] font-bold text-success">
         <CheckIcon size={14} aria-hidden="true" />
-        <span>{total === 0 ? "Reserva sin costo" : "Pago procesado por Stripe"}</span>
+        <span>{total === 0 ? "Reserva sin costo" : `Pago procesado por ${NOMBRE_PASARELA[pasarela ?? "STRIPE"]}`}</span>
       </div>
     </form>
   );

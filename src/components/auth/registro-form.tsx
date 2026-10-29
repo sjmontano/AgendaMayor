@@ -8,7 +8,7 @@ import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { UserPlusIcon } from "@/components/icons/user-plus";
 import { BtnMayor } from "@/components/ui/botones";
 import { Campo, CampoClave, CampoSelect } from "@/components/ui/campo";
-import { apiPost } from "@/lib/api";
+import { apiPost, mensajeDeError } from "@/lib/api";
 import { FACULTADES, facultadProgramas } from "@/lib/facultades";
 import { cn } from "@/lib/utils";
 
@@ -110,7 +110,7 @@ export function RegistroForm() {
       router.push("/panel?bienvenida=1");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos crear tu cuenta");
+      setError(mensajeDeError(err, "No pudimos crear tu cuenta. Inténtalo de nuevo."));
       setCargando(false);
     }
   }

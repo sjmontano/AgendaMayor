@@ -103,7 +103,7 @@ export function PilaDestacados({ items }: { items: ItemPila[] }) {
           );
         })}
         {/* Espaciador: da a la pila su altura real */}
-        <div aria-hidden="true" className="invisible" style={{ marginTop: profundidad * PEEK }}>
+        <div aria-hidden="true" className="invisible" style={{ paddingTop: profundidad * PEEK }}>
           <div className="aspect-[16/10]" />
         </div>
       </div>

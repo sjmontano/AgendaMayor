@@ -12,7 +12,7 @@ export interface FolderOpenIconHandle {
   stopAnimation: () => void;
 }
 
-interface FolderOpenIconProps extends HTMLAttributes<HTMLDivElement> {
+interface FolderOpenIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -43,7 +43,7 @@ const FolderOpenIcon = forwardRef<FolderOpenIconHandle, FolderOpenIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: MouseEvent<HTMLDivElement>) => {
+      (e: MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -54,7 +54,7 @@ const FolderOpenIcon = forwardRef<FolderOpenIconHandle, FolderOpenIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: MouseEvent<HTMLDivElement>) => {
+      (e: MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -65,8 +65,8 @@ const FolderOpenIcon = forwardRef<FolderOpenIconHandle, FolderOpenIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -90,7 +90,7 @@ const FolderOpenIcon = forwardRef<FolderOpenIconHandle, FolderOpenIconProps>(
             variants={VARIANTS}
           />
         </motion.svg>
-      </div>
+      </span>
     );
   }
 );

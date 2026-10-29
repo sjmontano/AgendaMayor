@@ -12,7 +12,7 @@ export interface ExternalLinkIconHandle {
   stopAnimation: () => void;
 }
 
-interface ExternalLinkIconProps extends HTMLAttributes<HTMLDivElement> {
+interface ExternalLinkIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -51,7 +51,7 @@ const ExternalLinkIcon = forwardRef<
   });
 
   const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (!isControlledRef.current) controls.start("animate");
       onMouseEnter?.(e);
     },
@@ -59,7 +59,7 @@ const ExternalLinkIcon = forwardRef<
   );
 
   const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (!isControlledRef.current) controls.start("normal");
       onMouseLeave?.(e);
     },
@@ -67,8 +67,8 @@ const ExternalLinkIcon = forwardRef<
   );
 
   return (
-    <div
-      className={cn(className)}
+    <span
+      className={cn("inline-flex shrink-0", className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       {...props}
@@ -90,7 +90,7 @@ const ExternalLinkIcon = forwardRef<
           <path d="M10 14 21 3" />
         </motion.g>
       </svg>
-    </div>
+    </span>
   );
 });
 

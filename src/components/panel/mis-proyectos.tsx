@@ -14,7 +14,7 @@ import { Pills } from "@/components/ui/pills";
 import { useToast } from "@/components/ui/toast";
 import { Vacio } from "@/components/ui/vacio";
 import { PortadaProyecto, type ProyectoCardData } from "@/components/vitrina/proyecto-card";
-import { apiPatch } from "@/lib/api";
+import { apiPatch, mensajeDeError } from "@/lib/api";
 import { cn, fechaLarga } from "@/lib/utils";
 
 /**
@@ -105,7 +105,7 @@ export function MisProyectos({ proyectos: iniciales }: { proyectos: ProyectoCard
       setEditando(null);
       router.refresh();
     } catch (e) {
-      toast.error("No pudimos reenviar el proyecto", e instanceof Error ? e.message : undefined);
+      toast.error("No pudimos reenviar el proyecto", mensajeDeError(e));
     } finally {
       setOcupado(false);
     }
@@ -121,7 +121,7 @@ export function MisProyectos({ proyectos: iniciales }: { proyectos: ProyectoCard
       setEliminando(null);
       router.refresh();
     } catch (e) {
-      toast.error("No pudimos eliminarlo", e instanceof Error ? e.message : undefined);
+      toast.error("No pudimos eliminarlo", mensajeDeError(e));
     } finally {
       setOcupado(false);
     }

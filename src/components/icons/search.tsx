@@ -11,7 +11,7 @@ export interface SearchIconHandle {
   stopAnimation: () => void;
 }
 
-interface SearchIconProps extends HTMLAttributes<HTMLDivElement> {
+interface SearchIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -30,7 +30,7 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -41,7 +41,7 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -52,8 +52,8 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -84,7 +84,7 @@ const SearchIcon = forwardRef<SearchIconHandle, SearchIconProps>(
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </motion.svg>
-      </div>
+      </span>
     );
   }
 );

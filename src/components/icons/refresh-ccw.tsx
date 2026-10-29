@@ -11,7 +11,7 @@ export interface RefreshCCWIconHandle {
   stopAnimation: () => void;
 }
 
-interface RefreshCCWIconProps extends HTMLAttributes<HTMLDivElement> {
+interface RefreshCCWIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -29,7 +29,7 @@ const RefreshCCWIcon = forwardRef<RefreshCCWIconHandle, RefreshCCWIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) onMouseEnter?.(e);
         else controls.start("animate");
       },
@@ -37,7 +37,7 @@ const RefreshCCWIcon = forwardRef<RefreshCCWIconHandle, RefreshCCWIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) onMouseLeave?.(e);
         else controls.start("normal");
       },
@@ -45,8 +45,8 @@ const RefreshCCWIcon = forwardRef<RefreshCCWIconHandle, RefreshCCWIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -76,7 +76,7 @@ const RefreshCCWIcon = forwardRef<RefreshCCWIconHandle, RefreshCCWIconProps>(
             <path d="M3 12a9 9 0 0 0 15 6.7l3-2.7" />
           </motion.g>
         </svg>
-      </div>
+      </span>
     );
   }
 );

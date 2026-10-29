@@ -12,7 +12,7 @@ export interface MailCheckIconHandle {
   stopAnimation: () => void;
 }
 
-interface MailCheckIconProps extends HTMLAttributes<HTMLDivElement> {
+interface MailCheckIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -49,7 +49,7 @@ const MailCheckIcon = forwardRef<MailCheckIconHandle, MailCheckIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -60,7 +60,7 @@ const MailCheckIcon = forwardRef<MailCheckIconHandle, MailCheckIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -71,8 +71,8 @@ const MailCheckIcon = forwardRef<MailCheckIconHandle, MailCheckIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -98,7 +98,7 @@ const MailCheckIcon = forwardRef<MailCheckIconHandle, MailCheckIconProps>(
             variants={CHECK_VARIANTS}
           />
         </svg>
-      </div>
+      </span>
     );
   }
 );

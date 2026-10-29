@@ -12,19 +12,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * Pantalla de vuelta de Stripe. El webhook es la fuente de verdad; esta vista
- * consulta el estado y se refresca sola hasta que la orden queda PAGADA.
+ * Pantalla de vuelta de la pasarela (Stripe, Wompi o Bold). El webhook o la
+ * conciliación confirman el pago; esta vista se refresca sola hasta PAGADA.
  */
 export default async function ResultadoPagoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orden?: string; token?: string }>;
+  searchParams: Promise<{ orden?: string; token?: string; id?: string }>;
 }) {
-  const { orden: codigo, token } = await searchParams;
+  const { orden: codigo, token, id: transaccionId } = await searchParams;
   if (!codigo) notFound();
 
   const usuario = await usuarioActual();
-  const orden = await obtenerOrdenParaVer(codigo, token ?? null, usuario).catch(() => notFound());
+  // Wompi agrega ?id=<transacción> al volver: sirve para conciliar al instante.
+  const orden = await obtenerOrdenParaVer(codigo, token ?? null, usuario, transaccionId ?? null).catch(() => notFound());
 
   return (
     <div className="min-h-[60vh] bg-unimayor-tint px-4 py-12 sm:px-6 lg:py-20">

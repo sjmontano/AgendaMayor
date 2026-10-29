@@ -12,7 +12,7 @@ export interface RocketIconHandle {
   stopAnimation: () => void;
 }
 
-interface RocketIconProps extends HTMLAttributes<HTMLDivElement> {
+interface RocketIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -70,7 +70,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
@@ -81,7 +81,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
     );
 
     const handleMouseLeave = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      (e: React.MouseEvent<HTMLSpanElement>) => {
         if (isControlledRef.current) {
           onMouseLeave?.(e);
         } else {
@@ -92,8 +92,8 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
     );
 
     return (
-      <div
-        className={cn(className)}
+      <span
+        className={cn("inline-flex shrink-0", className)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}
@@ -120,7 +120,7 @@ const RocketIcon = forwardRef<RocketIconHandle, RocketIconProps>(
           <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
           <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
         </motion.svg>
-      </div>
+      </span>
     );
   }
 );

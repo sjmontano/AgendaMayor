@@ -12,7 +12,7 @@ export interface GalleryHorizontalEndIconHandle {
   stopAnimation: () => void;
 }
 
-interface GalleryHorizontalEndIconProps extends HTMLAttributes<HTMLDivElement> {
+interface GalleryHorizontalEndIconProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
@@ -55,7 +55,7 @@ const GalleryHorizontalEndIcon = forwardRef<
   });
 
   const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseEnter?.(e);
       } else {
@@ -66,7 +66,7 @@ const GalleryHorizontalEndIcon = forwardRef<
   );
 
   const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLSpanElement>) => {
       if (isControlledRef.current) {
         onMouseLeave?.(e);
       } else {
@@ -77,8 +77,8 @@ const GalleryHorizontalEndIcon = forwardRef<
   );
 
   return (
-    <div
-      className={cn(className)}
+    <span
+      className={cn("inline-flex shrink-0", className)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       {...props}
@@ -108,7 +108,7 @@ const GalleryHorizontalEndIcon = forwardRef<
         />
         <rect height="18" rx="2" width="12" x="10" y="3" />
       </svg>
-    </div>
+    </span>
   );
 });
 
