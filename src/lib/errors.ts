@@ -35,6 +35,10 @@ export function internal(msg = 'Error interno del servidor') {
   return new ApiError(500, msg);
 }
 
+export function serviceUnavailable(msg = 'Servicio no disponible') {
+  return new ApiError(503, msg);
+}
+
 /** Formatea respuesta exitosa */
 export function ok(data: unknown, status = 200) {
   return Response.json({ data, error: null }, { status });

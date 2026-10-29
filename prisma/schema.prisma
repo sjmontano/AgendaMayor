@@ -46,11 +46,14 @@ model Usuario {
   avatar          String? @db.VarChar(255)
   estado          Boolean @default(true)
 
-  rolRef         Rol            @relation(fields: [rol], references: [id_rol])
-  proyectos      Proyecto[]     @relation("ProyectoAutor")
-  proyectosAval  Proyecto[]     @relation("ProyectoAval")
-  eventos        Evento[]
-  notificaciones Notificacion[]
+  rolRef            Rol            @relation(fields: [rol], references: [id_rol])
+  proyectos         Proyecto[]     @relation("ProyectoAutor")
+  proyectosAval     Proyecto[]     @relation("ProyectoAval")
+  eventos           Evento[]
+  notificaciones    Notificacion[]
+  ordenes           Orden[]        @relation("OrdenComprador")
+  entradas          Entrada[]      @relation("EntradaAsistente")
+  entradasValidadas Entrada[]      @relation("EntradaValidadaPor")
 
   @@index([correo])
   @@index([username])
@@ -103,12 +106,29 @@ model Evento {
   autor_id     Int
   activo       Boolean  @default(true)
 
-  autor     Usuario    @relation(fields: [autor_id], references: [id_usuario])
-  proyectos Proyecto[] @relation("ProyectoOrigen")
-  puestos   Puesto[]
+  // Publicación y taquilla
+  estado              String    @default("PUBLICADO") @db.VarChar(20)
+  permite_entradas    Boolean   @default(false)
+  aforo               Int?
+  max_por_compra      Int       @default(6)
+  venta_inicio        DateTime? @db.Timestamptz(6)
+  venta_fin           DateTime? @db.Timestamptz(6)
+  politica_devolucion String?   @db.VarChar(500)
+  url_acceso_privado  String?   @db.VarChar(255)
+  motivo_cancelacion  String?   @db.VarChar(500)
+  publicado_en        DateTime? @db.Timestamptz(6)
+
+  autor        Usuario       @relation(fields: [autor_id], references: [id_usuario])
+  proyectos    Proyecto[]    @relation("ProyectoOrigen")
+  puestos      Puesto[]
+  tiposEntrada TipoEntrada[]
+  ordenes      Orden[]
+  entradas     Entrada[]
 
   @@index([autor_id])
   @@index([activo])
+  @@index([estado])
+  @@index([fecha_inicio])
   @@map("evento")
 }
 
@@ -141,13 +161,13 @@ model Notificacion {
 
 /// Puesto físico (mesa) de una feria EAFI.
 model Puesto {
-  id_puesto   Int     @id @default(autoincrement())
-  codigo      String  @unique @db.VarChar(20)
-  edificio    String  @db.VarChar(100)
+  id_puesto   Int    @id @default(autoincrement())
+  codigo      String @unique @db.VarChar(20)
+  edificio    String @db.VarChar(100)
   piso        Int
-  salon       String  @db.VarChar(100)
-  ubicacion   String  @db.VarChar(200)
-  estado      String  @default("DISPONIBLE") @db.VarChar(20)
+  salon       String @db.VarChar(100)
+  ubicacion   String @db.VarChar(200)
+  estado      String @default("DISPONIBLE") @db.VarChar(20)
   evento_id   Int
   proyecto_id Int?
 
@@ -157,4 +177,125 @@ model Puesto {
   @@index([estado])
   @@index([evento_id])
   @@map("puesto")
+}
+
+/// Tipo de entrada de un evento (taquilla). El precio se guarda en centavos
+/// de COP para que Stripe reciba el entero exacto en su unidad mínima.
+model TipoEntrada {
+  id_tipo_entrada    Int      @id @default(autoincrement())
+  evento_id          Int
+  nombre             String   @db.VarChar(80)
+  descripcion        String?  @db.VarChar(300)
+  precio_centavos    Int
+  cantidad_total     Int
+  cantidad_vendida   Int      @default(0)
+  cantidad_reservada Int      @default(0)
+  activo             Boolean  @default(true)
+  creado_en          DateTime @default(now()) @db.Timestamptz(6)
+
+  evento   Evento      @relation(fields: [evento_id], references: [id_evento], onDelete: Cascade)
+  items    OrdenItem[]
+  entradas Entrada[]
+
+  @@index([evento_id])
+  @@map("tipo_entrada")
+}
+
+/// Orden de compra. `token_hash` protege el acceso público a la orden y a las
+/// entradas: el token en claro solo viaja en la URL de éxito de Stripe.
+model Orden {
+  id_orden                 Int       @id @default(autoincrement())
+  codigo                   String    @unique @db.VarChar(32)
+  token_hash               String    @db.VarChar(64)
+  evento_id                Int
+  comprador_id             Int?
+  nombre_comprador         String    @db.VarChar(100)
+  correo_comprador         String    @db.VarChar(100)
+  documento                String?   @db.VarChar(30)
+  telefono                 String?   @db.VarChar(30)
+  total_centavos           Int
+  moneda                   String    @default("COP") @db.VarChar(3)
+  estado                   String    @default("PENDIENTE") @db.VarChar(20)
+  stripe_session_id        String?   @unique @db.VarChar(255)
+  stripe_payment_intent_id String?   @db.VarChar(255)
+  metodo_pago              String?   @db.VarChar(30)
+  ip                       String?   @db.VarChar(64)
+  expira_en                DateTime  @db.Timestamptz(6)
+  pagada_en                DateTime? @db.Timestamptz(6)
+  reembolsada_en           DateTime? @db.Timestamptz(6)
+  creada_en                DateTime  @default(now()) @db.Timestamptz(6)
+  actualizada_en           DateTime  @updatedAt @db.Timestamptz(6)
+
+  evento        Evento         @relation(fields: [evento_id], references: [id_evento])
+  comprador     Usuario?       @relation("OrdenComprador", fields: [comprador_id], references: [id_usuario], onDelete: SetNull)
+  items         OrdenItem[]
+  entradas      Entrada[]
+  eventosStripe StripeEvento[]
+
+  @@index([evento_id])
+  @@index([correo_comprador])
+  @@index([estado])
+  @@index([creada_en])
+  @@map("orden")
+}
+
+model OrdenItem {
+  id_orden_item            Int @id @default(autoincrement())
+  orden_id                 Int
+  tipo_entrada_id          Int
+  cantidad                 Int
+  precio_unitario_centavos Int
+  subtotal_centavos        Int
+
+  orden       Orden       @relation(fields: [orden_id], references: [id_orden], onDelete: Cascade)
+  tipoEntrada TipoEntrada @relation(fields: [tipo_entrada_id], references: [id_tipo_entrada])
+
+  @@index([orden_id])
+  @@index([tipo_entrada_id])
+  @@map("orden_item")
+}
+
+/// Entrada individual. El código es el contenido del QR y se valida una sola
+/// vez en la puerta (estado VALIDA → USADA) de forma atómica.
+model Entrada {
+  id_entrada       Int       @id @default(autoincrement())
+  codigo           String    @unique @db.VarChar(32)
+  orden_id         Int
+  tipo_entrada_id  Int
+  evento_id        Int
+  asistente_id     Int?
+  nombre_asistente String    @db.VarChar(100)
+  correo_asistente String    @db.VarChar(100)
+  estado           String    @default("VALIDA") @db.VarChar(20)
+  usada_en         DateTime? @db.Timestamptz(6)
+  validada_por_id  Int?
+  creada_en        DateTime  @default(now()) @db.Timestamptz(6)
+
+  orden       Orden       @relation(fields: [orden_id], references: [id_orden], onDelete: Cascade)
+  tipoEntrada TipoEntrada @relation(fields: [tipo_entrada_id], references: [id_tipo_entrada])
+  evento      Evento      @relation(fields: [evento_id], references: [id_evento])
+  asistente   Usuario?    @relation("EntradaAsistente", fields: [asistente_id], references: [id_usuario], onDelete: SetNull)
+  validadaPor Usuario?    @relation("EntradaValidadaPor", fields: [validada_por_id], references: [id_usuario], onDelete: SetNull)
+
+  @@index([orden_id])
+  @@index([evento_id])
+  @@index([estado])
+  @@index([correo_asistente])
+  @@map("entrada")
+}
+
+/// Registro idempotente de webhooks de Stripe. Evita duplicar entradas cuando
+/// Stripe reintenta un evento (hasta 3 veces en 24 h).
+model StripeEvento {
+  id_stripe_evento Int      @id @default(autoincrement())
+  stripe_event_id  String   @unique @db.VarChar(255)
+  tipo             String   @db.VarChar(80)
+  orden_id         Int?
+  payload          Json
+  recibido_en      DateTime @default(now()) @db.Timestamptz(6)
+
+  orden Orden? @relation(fields: [orden_id], references: [id_orden], onDelete: SetNull)
+
+  @@index([orden_id])
+  @@map("stripe_evento")
 }

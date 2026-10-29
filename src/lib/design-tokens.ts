@@ -69,6 +69,9 @@ export const badgeEstado: Record<string, string> = {
   EN_REVISION: badge.estadoRevision,
   RECHAZADO: badge.estadoRechazado,
   BORRADOR: badge.estadoBorrador,
+  CANCELADO: badge.estadoRechazado,
+  FINALIZADO: badge.estadoBorrador,
+  AGOTADO: badge.estadoRevision,
 }
 
 export const etiquetaEstado: Record<string, string> = {
@@ -77,6 +80,39 @@ export const etiquetaEstado: Record<string, string> = {
   RECHAZADO: 'Rechazado',
   BORRADOR: 'Borrador',
   ELIMINADO: 'Eliminado',
+  CANCELADO: 'Cancelado',
+  FINALIZADO: 'Finalizado',
+  AGOTADO: 'Agotado',
+}
+
+export const badgeOrden: Record<string, string> = {
+  PENDIENTE: badge.estadoRevision,
+  PAGADA: badge.estadoPublicado,
+  FALLIDA: badge.estadoRechazado,
+  EXPIRADA: badge.estadoBorrador,
+  CANCELADA: badge.estadoRechazado,
+  REEMBOLSADA: badge.tipoEafi,
+}
+
+export const etiquetaOrden: Record<string, string> = {
+  PENDIENTE: 'Pendiente de pago',
+  PAGADA: 'Pagada',
+  FALLIDA: 'Pago fallido',
+  EXPIRADA: 'Expirada',
+  CANCELADA: 'Cancelada',
+  REEMBOLSADA: 'Reembolsada',
+}
+
+export const badgeEntrada: Record<string, string> = {
+  VALIDA: badge.estadoPublicado,
+  USADA: badge.tipoEafi,
+  ANULADA: badge.estadoRechazado,
+}
+
+export const etiquetaEntrada: Record<string, string> = {
+  VALIDA: 'Válida',
+  USADA: 'Usada',
+  ANULADA: 'Anulada',
 }
 
 export const etiquetaTipo: Record<string, string> = {

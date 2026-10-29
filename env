@@ -1,0 +1,22 @@
+# ── Postgres / Neon (proyecto wandering-dawn-34589438) ──
+DATABASE_URL="postgresql://neondb_owner:npg_QfsB3Oqk5vMp@ep-holy-scene-b5mq2f7c-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_URL="postgresql://neondb_owner:npg_QfsB3Oqk5vMp@ep-holy-scene-b5mq2f7c.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+# ── Sesión propia ──
+AUTH_SECRET="11887975da162aab7384ef8895ff47e70091cc287240adc9fd787f967e3c76dd"
+
+# ── Neon Data API / Auth (no los usa la app; referencia) ──
+NEON_DATA_API_URL="https://ep-holy-scene-b5mq2f7c.apirest.c-7.us-east-2.aws.neon.tech/neondb/rest/v1"
+NEON_AUTH_URL="https://ep-holy-scene-b5mq2f7c.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth"
+NEON_AUTH_JWKS_URL="https://ep-holy-scene-b5mq2f7c.neonauth.c-7.us-east-2.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+
+# ── Neon object storage (S3 compatible; la app aún no lo usa) ──
+AWS_ENDPOINT_URL_S3="https://br-tiny-night-b58calsb.storage.c-7.us-east-2.aws.neon.tech"
+AWS_ACCESS_KEY_ID="nak_live_c08facf93725467a8184a48793c58212"
+AWS_SECRET_ACCESS_KEY="nsk_live_09ab5a9260120db0452f1eb55e9ea6d38f094f5acf6dfef96e1061586675197b"
+AWS_REGION="us-east-2"
+
+# ── Supabase (obsoleto tras la migración a Neon) ──
+# NEXT_PUBLIC_SUPABASE_URL=https://yttxsiqnvrmtguqviniu.supabase.co
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dHhzaXFudnJtdGd1cXZpbml1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMzU5MTUsImV4cCI6MjEwNDkxMTkxNX0.QVr3kWvS7FsK44vYp97qh40YRRlLfemC_n3rWSWnOWE
+# SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dHhzaXFudnJtdGd1cXZpbml1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTMzNTkxNSwiZXhwIjoyMTA0OTExOTE1fQ.5u_4fmjzIz2Bv9fVJzCENo1mPNFOKMD0CQr7Rles_fk

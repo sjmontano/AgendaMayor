@@ -14,6 +14,7 @@ import { UserIcon } from "@/components/icons/user";
 import { BellIcon } from "@/components/icons/bell";
 import { LogoutIcon } from "@/components/icons/logout";
 import { MenuIcon } from "@/components/icons/menu";
+import { StampIcon } from "@/components/icons/stamp";
 import { BtnIcono, BtnMayor } from "@/components/ui/botones";
 import { Drawer } from "@/components/ui/drawer";
 import { Avatar } from "@/components/ui/avatar";
@@ -180,6 +181,12 @@ export function Navbar({ sesion }: { sesion: SesionNav | null }) {
           {sesion && (
             <>
               <li>
+                <ItemDrawer enlace={{ href: "/panel/eventos", label: "Mis eventos", icono: CalendarDaysIcon }} activo={activo(pathname, "/panel/eventos")} />
+              </li>
+              <li>
+                <ItemDrawer enlace={{ href: "/mis-entradas", label: "Mis entradas", icono: StampIcon }} activo={activo(pathname, "/mis-entradas")} />
+              </li>
+              <li>
                 <ItemDrawer enlace={{ href: "/notificaciones", label: "Notificaciones", icono: BellIcon }} activo={activo(pathname, "/notificaciones")} />
               </li>
               <li>
@@ -189,9 +196,14 @@ export function Navbar({ sesion }: { sesion: SesionNav | null }) {
           )}
         </ul>
         {sesion && (
-          <BtnMayor href="/proyectos/nuevo" variante="gold" icono={PlusIcon} iconoPos="inicio" anchoCompleto className="mt-5">
-            Publicar proyecto
-          </BtnMayor>
+          <div className="mt-5 grid gap-2">
+            <BtnMayor href="/proyectos/nuevo" variante="gold" icono={PlusIcon} iconoPos="inicio" anchoCompleto>
+              Publicar proyecto
+            </BtnMayor>
+            <BtnMayor href="/eventos/nuevo" variante="secondary" icono={CalendarDaysIcon} iconoPos="inicio" anchoCompleto>
+              Crear evento
+            </BtnMayor>
+          </div>
         )}
       </Drawer>
     </header>
@@ -310,6 +322,12 @@ function MenuUsuario({ sesion }: { sesion: SesionNav }) {
             <ul className="mt-1 py-1">
               <ItemMenu href="/panel" icono={LayoutGridIcon} onClick={() => setAbierto(false)}>
                 Mi panel
+              </ItemMenu>
+              <ItemMenu href="/panel/eventos" icono={CalendarDaysIcon} onClick={() => setAbierto(false)}>
+                Mis eventos
+              </ItemMenu>
+              <ItemMenu href="/mis-entradas" icono={StampIcon} onClick={() => setAbierto(false)}>
+                Mis entradas
               </ItemMenu>
               <ItemMenu href={`/perfil/${sesion.username}`} icono={UserIcon} onClick={() => setAbierto(false)}>
                 Mi perfil público

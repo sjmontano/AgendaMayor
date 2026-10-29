@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { MapPinIcon } from "@/components/icons/map-pin";
 import { ExternalLinkIcon } from "@/components/icons/external-link";
@@ -22,6 +23,8 @@ export interface EventoCardData {
   es_virtual: boolean;
   facultad: string | null;
   imagen: string | null;
+  /** Presente en la cartelera: habilita la compra en el detalle. */
+  permite_entradas?: boolean;
 }
 
 export interface EventoRssData {
@@ -80,12 +83,25 @@ export function EventoCard({ evento }: { evento: EventoCardData }) {
           <p className="text-[11px] font-bold tracking-[0.16em] text-unimayor-700 uppercase">{evento.facultad}</p>
         )}
         <h3 className="mt-1 line-clamp-2 text-[17px] leading-snug font-extrabold text-ink group-hover:text-unimayor-900">
-          {evento.titulo}
+          <Link
+            href={`/eventos/${evento.id_evento}`}
+            className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-tile focus-visible:after:outline-3 focus-visible:after:outline-unimayor-900"
+          >
+            {evento.titulo}
+          </Link>
         </h3>
         <p className="mt-2 line-clamp-2 text-sm text-muted">{evento.descripcion}</p>
-        <div className="mt-auto flex items-center gap-1.5 pt-4 text-[13px] font-bold text-unimayor-700">
-          <MapPinIcon ref={ref} size={16} aria-hidden="true" />
-          {evento.es_virtual ? "Virtual" : evento.lugar}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-[13px] font-bold text-unimayor-700">
+          <span className="flex items-center gap-1.5">
+            <MapPinIcon ref={ref} size={16} aria-hidden="true" />
+            {evento.es_virtual ? "Virtual" : evento.lugar}
+          </span>
+          {evento.permite_entradas && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-extrabold text-gold-ink">
+              <span className="size-1.5 rounded-full bg-gold" aria-hidden="true" />
+              Entradas
+            </span>
+          )}
         </div>
       </div>
     </article>

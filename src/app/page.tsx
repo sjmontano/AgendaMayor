@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listarPublicados } from "@/modelo/proyectos/proyecto.service";
 import { listarActivos as listarEventos } from "@/modelo/eventos/evento.repository";
+import { aResumenPublico } from "@/modelo/eventos/evento.service";
 import { listarActivos as listarAvisos } from "@/modelo/avisos/aviso.repository";
 import { resumenPublico } from "@/modelo/estadisticas/estadistica.service";
 import { ProyectoCard } from "@/components/vitrina/proyecto-card";
@@ -42,7 +43,9 @@ const VACIO_RESUMEN = {
 export default async function Home() {
   const [proyectosRaw, eventos, avisos, resumen] = await Promise.all([
     listarPublicados({ page: 1, limit: 6 }).catch(() => ({ data: [], total: 0 })),
-    listarEventos({ page: 1, limit: 3 }).catch(() => ({ data: [], total: 0 })),
+    listarEventos({ page: 1, limit: 3 })
+      .then((r) => ({ ...r, data: r.data.map(aResumenPublico) }))
+      .catch(() => ({ data: [], total: 0 })),
     listarAvisos().catch(() => []),
     resumenPublico().catch(() => VACIO_RESUMEN),
   ]);
@@ -322,7 +325,7 @@ export default async function Home() {
                     <p className="text-sm text-white/80">{proximo.es_virtual ? "Virtual" : proximo.lugar}</p>
                   </div>
                   <div className="mt-8">
-                    <BtnMayor href="/eventos" variante="onDark" tamano="sm" icono={ArrowRightIcon}>
+                    <BtnMayor href={`/eventos/${proximo.id_evento}`} variante="onDark" tamano="sm" icono={ArrowRightIcon}>
                       Ver detalles
                     </BtnMayor>
                   </div>

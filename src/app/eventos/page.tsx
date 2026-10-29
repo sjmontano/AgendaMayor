@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { PlusIcon } from "@/components/icons/plus";
 import { listarActivos as listarEventosDb } from "@/modelo/eventos/evento.repository";
+import { aResumenPublico } from "@/modelo/eventos/evento.service";
 import { obtenerEventosUnimayor } from "@/lib/integraciones/unimayor-rss";
 import { Cartelera } from "@/components/eventos/cartelera";
 import type { EventoRssData } from "@/components/eventos/evento-card";
+import { BtnMayor } from "@/components/ui/botones";
 import { EncabezadoSeccion } from "@/components/ui/seccion";
+import { usuarioActual } from "@/lib/sesion-vista";
 
 export const metadata: Metadata = { title: "Cartelera de eventos" };
 export const dynamic = "force-dynamic";
@@ -13,12 +17,13 @@ export const dynamic = "force-dynamic";
  * de UNIMAYOR (server-side, caché 1h en el módulo de integración).
  */
 export default async function EventosPage() {
-  const [db, rss] = await Promise.allSettled([
-    listarEventosDb({ page: 1, limit: 48 }),
-    obtenerEventosUnimayor(),
+  const [db, rss, usuario] = await Promise.all([
+    listarEventosDb({ page: 1, limit: 48 }).catch(() => null),
+    obtenerEventosUnimayor().catch(() => []),
+    usuarioActual(),
   ]);
-  const eventos = db.status === "fulfilled" ? db.value.data : [];
-  const portal: EventoRssData[] = rss.status === "fulfilled" ? rss.value.map((e, i) => ({ ...e, id_rss: i })) : [];
+  const eventos = db ? db.data.map(aResumenPublico) : [];
+  const portal: EventoRssData[] = rss.map((e, i) => ({ ...e, id_rss: i }));
 
   return (
     <>
@@ -29,6 +34,17 @@ export default async function EventosPage() {
             eyebrow="Cartelera"
             titulo="Eventos académicos"
             descripcion="Eventos oficiales, ferias EAFI, actividades de la comunidad y lo último del portal institucional."
+            accion={
+              usuario ? (
+                <BtnMayor href="/eventos/nuevo" variante="gold" icono={PlusIcon}>
+                  Crear evento
+                </BtnMayor>
+              ) : (
+                <BtnMayor href="/ingresar?siguiente=/eventos/nuevo" variante="secondary">
+                  Publicar un evento
+                </BtnMayor>
+              )
+            }
           />
         </div>
       </section>

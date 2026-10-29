@@ -24,6 +24,12 @@ npx prisma db seed      # roles + usuarios demo (contraseña: Unimayor2026)
 | `DATABASE_URL` | Cadena **pooled** de Postgres | Neon → Dashboard → Connection string |
 | `DIRECT_URL` | Cadena **directa** de Postgres | Neon → Dashboard → Connection string |
 | `AUTH_SECRET` | Clave para firmar la cookie de sesión (JWT) | Genera con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `STRIPE_SECRET_KEY` | Cobros y reembolsos de la taquilla | Stripe → Developers → API keys (`sk_test_…`/`sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Firma de `/api/stripe/webhook` | Stripe → Developers → Webhooks → endpoint `https://TU-DOMINIO/api/stripe/webhook` (`whsec_…`) |
+| `STRIPE_CURRENCY` | Moneda de la taquilla | `cop` (por defecto) |
+| `NEXT_PUBLIC_SITE_URL` | URL pública para `success_url`/`cancel_url` | `https://tu-dominio.vercel.app` |
+
+> La taquilla paga necesita el webhook. Suscríbelo a `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired` y `charge.refunded`.
 
 ---
 

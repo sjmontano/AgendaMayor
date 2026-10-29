@@ -25,18 +25,74 @@ export function tiempoRelativo(fechaIso: string, ahora = Date.now()) {
   return RTF.format(Math.round(diff / 2629800), "month");
 }
 
+/** Zona horaria institucional. Vercel ejecuta en UTC; sin esto un evento
+ * de las 8 p. m. puede mostrarse con el día siguiente. */
+export const ZONA_HORARIA = "America/Bogota";
+
 export function fechaLarga(fechaIso: string) {
   return new Date(fechaIso).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: ZONA_HORARIA,
+  });
+}
+
+export function fechaHoraLarga(fechaIso: string) {
+  return new Date(fechaIso).toLocaleString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: ZONA_HORARIA,
+  });
+}
+
+export function horaCorta(fechaIso: string) {
+  return new Date(fechaIso).toLocaleTimeString("es-CO", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: ZONA_HORARIA,
   });
 }
 
 export function fechaCorta(fechaIso: string) {
   const d = new Date(fechaIso);
   return {
-    dia: d.toLocaleDateString("es-CO", { day: "2-digit" }),
-    mes: d.toLocaleDateString("es-CO", { month: "short" }).replace(".", ""),
+    dia: d.toLocaleDateString("es-CO", { day: "2-digit", timeZone: ZONA_HORARIA }),
+    mes: d.toLocaleDateString("es-CO", { month: "short", timeZone: ZONA_HORARIA }).replace(".", ""),
   };
+}
+
+const COP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
+/** Formatea pesos colombianos (valor entero en COP). */
+export function formatearCOP(valor: number) {
+  return COP.format(Math.round(valor));
+}
+
+/** Formatea un monto guardado en centavos de COP. */
+export function formatearCentavos(centavos: number) {
+  return formatearCOP(centavos / 100);
+}
+
+/** Convierte pesos a centavos (Stripe recibe la unidad mínima). */
+export function aCentavos(cop: number) {
+  return Math.round(cop * 100);
+}
+
+/** Slug estable para nombres de archivo o referencias. */
+export function slug(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
 }

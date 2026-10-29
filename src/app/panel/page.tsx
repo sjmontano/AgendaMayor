@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listarMios } from "@/modelo/proyectos/proyecto.service";
+import { listarParaPanel } from "@/modelo/eventos/evento.service";
+import { listarMisEntradas } from "@/modelo/taquilla/taquilla.service";
 import { listarPorEstado } from "@/modelo/proyectos/proyecto.repository";
 import { resumenEstudiante, resumenModeracion } from "@/modelo/estadisticas/estadistica.service";
 import { usuarioActual } from "@/lib/sesion-vista";
@@ -16,6 +18,7 @@ import { Medidor } from "@/components/graficos/medidor";
 import { MisProyectos } from "@/components/panel/mis-proyectos";
 import { ColaRevision } from "@/components/panel/cola-revision";
 import { GestionPuestos, ImportarRss } from "@/components/panel/herramientas-admin";
+import { AccesosEventos } from "@/components/panel/accesos-eventos";
 import { PlusIcon } from "@/components/icons/plus";
 import { ArrowRightIcon } from "@/components/icons/arrow-right";
 import { etiquetaEstado } from "@/lib/design-tokens";
@@ -100,9 +103,11 @@ export default async function PanelPage({ searchParams }: { searchParams: Promis
 type Usuario = NonNullable<Awaited<ReturnType<typeof usuarioActual>>>;
 
 async function PanelEstudiante({ usuario }: { usuario: Usuario }) {
-  const [proyectos, resumen] = await Promise.all([
+  const [proyectos, resumen, eventos, ordenes] = await Promise.all([
     listarMios(usuario.id_usuario).catch(() => []),
     resumenEstudiante(usuario.id_usuario).catch(() => ({ porEstado: {} as Record<string, number>, sinLeer: 0 })),
+    listarParaPanel(usuario).catch(() => []),
+    listarMisEntradas(usuario).catch(() => []),
   ]);
   const datos = proyectos.map((p) => ({ ...p, autor: p.autor ?? null }));
   const total = proyectos.length;
@@ -156,6 +161,8 @@ async function PanelEstudiante({ usuario }: { usuario: Usuario }) {
         </Reveal>
       </div>
 
+      <AccesosEventos eventos={eventos} ordenes={ordenes} />
+
       {resumen.sinLeer > 0 && (
         <Reveal orden={3}>
           <Link
@@ -189,9 +196,11 @@ async function PanelEstudiante({ usuario }: { usuario: Usuario }) {
 async function PanelModeracion({ usuario }: { usuario: Usuario }) {
   const facultad = usuario.nombre_rol === "DOCENTE" ? usuario.facultad : null;
   const esAdmin = usuario.nombre_rol === "ADMIN";
-  const [pendientes, resumen] = await Promise.all([
+  const [pendientes, resumen, eventos, ordenes] = await Promise.all([
     listarPorEstado("EN_REVISION", facultad).catch(() => []),
     resumenModeracion(facultad).catch(() => null),
+    listarParaPanel(usuario).catch(() => []),
+    listarMisEntradas(usuario).catch(() => []),
   ]);
   const datos = pendientes.map((p) => ({ ...p, autor: p.autor ?? null }));
 
@@ -242,6 +251,8 @@ async function PanelModeracion({ usuario }: { usuario: Usuario }) {
           </Tile>
         </Reveal>
       </div>
+
+      <AccesosEventos eventos={eventos} ordenes={ordenes} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <section aria-labelledby="cola" className="min-w-0">

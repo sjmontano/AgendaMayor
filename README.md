@@ -377,6 +377,24 @@ npm run dev
 | `DATABASE_URL` | Cadena pooled de Postgres (Neon) | Sí |
 | `DIRECT_URL` | Cadena directa de Postgres (migraciones) | Sí |
 | `AUTH_SECRET` | Clave para firmar la cookie de sesión | Sí |
+| `STRIPE_SECRET_KEY` | Clave secreta de Stripe (`sk_test_…` en desarrollo) para la taquilla | Para cobrar en línea |
+| `STRIPE_WEBHOOK_SECRET` | Secreto del endpoint `/api/stripe/webhook` (`whsec_…`) | Para confirmar pagos |
+| `STRIPE_CURRENCY` | Moneda de la taquilla (`cop` por defecto) | No |
+| `NEXT_PUBLIC_SITE_URL` | URL pública usada en `success_url`/`cancel_url` de Stripe | Recomendada en producción |
+| `EVENTOS_REQUIEREN_APROBACION` | `true` envía eventos pagos de estudiantes a revisión | No |
+
+### Taquilla con Stripe en local
+
+```bash
+# Terminal 1: app
+npm run dev
+
+# Terminal 2: reenvía los webhooks a la app
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+# Copia el whsec_… que imprime el CLI en STRIPE_WEBHOOK_SECRET y reinicia.
+```
+
+Si no hay claves de Stripe, los eventos gratuitos y sus reservas con QR siguen funcionando; el checkout pago responde 503 con un mensaje claro.
 
 ---
 

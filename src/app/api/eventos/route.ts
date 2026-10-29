@@ -3,7 +3,7 @@ import { ok, err } from "@/lib/errors";
 import { getSesionDesdeCookies } from "@/lib/sesion";
 import { obtenerUsuarioPorId } from "@/lib/auth";
 import { listarActivos } from "@/modelo/eventos/evento.repository";
-import { crear } from "@/modelo/eventos/evento.service";
+import { aResumenPublico, crear } from "@/modelo/eventos/evento.service";
 import { EventoQuerySchema, EventoCreateSchema } from "@/modelo/eventos/evento.dto";
 
 /**
@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
       page: searchParams.get("page") ?? 1,
       limit: searchParams.get("limit") ?? 12,
     });
-    return ok(await listarActivos(filtros));
+    const { data, total } = await listarActivos(filtros);
+    return ok({ data: data.map(aResumenPublico), total });
   } catch (e) {
     return err(e);
   }
