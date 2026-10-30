@@ -35,10 +35,6 @@ export function internal(msg = 'Error interno del servidor') {
   return new ApiError(500, msg);
 }
 
-export function serviceUnavailable(msg = 'Servicio no disponible') {
-  return new ApiError(503, msg);
-}
-
 /** Formatea respuesta exitosa */
 export function ok(data: unknown, status = 200) {
   return Response.json({ data, error: null }, { status });
@@ -46,16 +42,6 @@ export function ok(data: unknown, status = 200) {
 
 /** Formatea respuesta de error */
 export function err(error: unknown) {
-  // Los 5xx nunca exponen su texto ni detalles: pueden describir
-  // configuración interna. Se registran y el cliente recibe un genérico.
-  if (error instanceof ApiError && error.status >= 500) {
-    console.error('[API Error]', error.status, error.message);
-    return Response.json(
-      { data: null, error: { message: error.status === 503 ? 'Servicio no disponible' : 'Error interno del servidor' } },
-      { status: error.status }
-    );
-  }
-
   if (error instanceof ApiError) {
     return Response.json(
       { data: null, error: { message: error.message, details: error.details } },

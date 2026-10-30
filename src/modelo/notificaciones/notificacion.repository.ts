@@ -38,17 +38,20 @@ export async function listarPorUsuario(usuarioId: number): Promise<NotificacionR
   return filas.map((n) => ({ ...n, fecha: n.fecha.toISOString() }));
 }
 
-export async function marcarTodasLeidas(usuarioId: number): Promise<number> {
-  const r = await prisma.notificacion.updateMany({
-    where: { usuario_id: usuarioId, leida: false },
-    data: { leida: true },
-  });
-  return r.count;
-}
-
 export async function marcarLeida(id: number, usuarioId: number): Promise<void> {
   await prisma.notificacion.updateMany({
     where: { id_notificacion: id, usuario_id: usuarioId },
+    data: { leida: true },
+  });
+}
+
+export async function contarNoLeidas(usuarioId: number): Promise<number> {
+  return prisma.notificacion.count({ where: { usuario_id: usuarioId, leida: false } });
+}
+
+export async function marcarTodasLeidas(usuarioId: number): Promise<void> {
+  await prisma.notificacion.updateMany({
+    where: { usuario_id: usuarioId, leida: false },
     data: { leida: true },
   });
 }

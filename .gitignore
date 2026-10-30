@@ -41,8 +41,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# opencode (local tooling)
-.opencode/
+# copia local de variables de entorno (nunca se sube: contiene secretos)
+env
 
-.vercel
-.env*
+# herramientas locales de IA (no forman parte de la entrega)
+.opencode/
+.agents/
+.claude/
+.codebase-memory/
+graphify-out/
+skills-lock.json
+CLAUDE.md
+AGENTS.md
+opencode.json

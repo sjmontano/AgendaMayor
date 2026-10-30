@@ -1,56 +1,77 @@
-import type { Metadata } from "next";
-import { PlusIcon } from "@/components/icons/plus";
-import { listarActivos as listarEventosDb } from "@/modelo/eventos/evento.repository";
-import { aResumenPublico } from "@/modelo/eventos/evento.service";
+import Link from "next/link";
+import { EventoCard } from "@/components/eventos/evento-card";
+import { listarActivos } from "@/modelo/eventos/evento.repository";
 import { obtenerEventosUnimayor } from "@/lib/integraciones/unimayor-rss";
-import { Cartelera } from "@/components/eventos/cartelera";
-import type { EventoRssData } from "@/components/eventos/evento-card";
-import { BtnMayor } from "@/components/ui/botones";
-import { EncabezadoSeccion } from "@/components/ui/seccion";
-import { usuarioActual } from "@/lib/sesion-vista";
+import { usuarioActualOpcional } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Cartelera de eventos" };
 export const dynamic = "force-dynamic";
 
-/**
- * Cartelera /eventos — HU-09. Eventos de la BD + publicaciones en vivo del RSS
- * de UNIMAYOR (server-side, caché 1h en el módulo de integración).
- */
+/** Cartelera de eventos (propios + noticias del portal UNIMAYOR por RSS). */
 export default async function EventosPage() {
-  const [db, rss, usuario] = await Promise.all([
-    listarEventosDb({ page: 1, limit: 48 }).catch(() => null),
-    obtenerEventosUnimayor().catch(() => []),
-    usuarioActual(),
+  const [{ data: eventos }, delPortal, usuario] = await Promise.all([
+    listarActivos({ page: 1, limit: 50 }),
+    obtenerEventosUnimayor().catch(() => []), // si el portal falla, la página sigue funcionando
+    usuarioActualOpcional(),
   ]);
-  const eventos = db ? db.data.map(aResumenPublico) : [];
-  const portal: EventoRssData[] = rss.map((e, i) => ({ ...e, id_rss: i }));
 
   return (
     <>
-      <section className="border-b border-line bg-unimayor-tint">
-        <div className="mx-auto max-w-6xl px-4 pt-12 pb-10 sm:px-6">
-          <EncabezadoSeccion
-            como="h1"
-            eyebrow="Cartelera"
-            titulo="Eventos académicos"
-            descripcion="Eventos oficiales, ferias EAFI, actividades de la comunidad y lo último del portal institucional."
-            accion={
-              usuario ? (
-                <BtnMayor href="/eventos/nuevo" variante="gold" icono={PlusIcon}>
-                  Crear evento
-                </BtnMayor>
-              ) : (
-                <BtnMayor href="/ingresar?siguiente=/eventos/nuevo" variante="secondary">
-                  Publicar un evento
-                </BtnMayor>
-              )
-            }
-          />
+      <section className="encabezado-pagina">
+        <div className="contenedor">
+          <span className="etiqueta-superior" style={{ color: "var(--dorado)" }}>
+            Cartelera
+          </span>
+          <h1>Eventos</h1>
+          <p>Eventos oficiales, ferias EAFI y actividades de la comunidad. Algunos venden entradas.</p>
         </div>
       </section>
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <Cartelera eventos={eventos} portal={portal} />
-      </div>
+
+      <section className="seccion">
+        <div className="contenedor">
+          <div className="titulo-seccion">
+            <h2>Eventos en Agenda Mayor</h2>
+            {usuario && (
+              <Link href="/eventos/nuevo" className="btn btn-dorado btn-pequeno">
+                + Crear evento
+              </Link>
+            )}
+          </div>
+          {eventos.length === 0 ? (
+            <p className="vacio">No hay eventos publicados.</p>
+          ) : (
+            <div className="grilla">
+              {eventos.map((e) => (
+                <EventoCard key={e.id_evento} evento={e} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {delPortal.length > 0 && (
+        <section className="seccion seccion--gris">
+          <div className="contenedor">
+            <div className="titulo-seccion">
+              <div>
+                <h2>Desde el portal UNIMAYOR</h2>
+                <p className="subtitulo">Publicaciones recientes de unimayor.edu.co.</p>
+              </div>
+            </div>
+            <div className="grilla">
+              {delPortal.slice(0, 6).map((e) => (
+                <a key={e.urlOrigen} href={e.urlOrigen} target="_blank" rel="noreferrer" className="tarjeta">
+                  <div className="tarjeta-imagen">{e.imagen ? <img src={e.imagen} alt="" /> : "U"}</div>
+                  <div className="tarjeta-cuerpo">
+                    <span className="etiqueta">Portal institucional</span>
+                    <h3>{e.titulo}</h3>
+                    <p className="recortar">{e.descripcionTexto}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </>
   );
 }

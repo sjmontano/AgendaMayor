@@ -1,13 +1,7 @@
-import { SkeletonHero, SkeletonGrid } from "@/components/ui/skeleton";
-
-/** loading.tsx — skeleton genérico (convención Next). */
-export default function Loading() {
+export default function Cargando() {
   return (
-    <>
-      <SkeletonHero />
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <SkeletonGrid count={3} />
-      </div>
-    </>
+    <section className="seccion">
+      <div className="contenedor vacio">Cargando…</div>
+    </section>
   );
 }

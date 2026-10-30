@@ -149,16 +149,27 @@ export async function actualizar(id: number, datos: ProyectoUpdateDTO): Promise<
   return aFila(fila);
 }
 
-/** Todos los proyectos del autor (cualquier estado salvo ELIMINADO) — panel del estudiante. */
+export async function contarPorAutor(autorId: number): Promise<number> {
+  return prisma.proyecto.count({ where: { autor_id: autorId } });
+}
+
+/** Proyectos del autor (todos menos ELIMINADO) — panel del estudiante. */
 export async function listarPorAutor(autorId: number): Promise<ProyectoRow[]> {
   const filas = await prisma.proyecto.findMany({
     where: { autor_id: autorId, estado: { not: "ELIMINADO" } },
     include: INCLUDE_AUTOR,
-    orderBy: [{ fecha_registro: "desc" }, { id_proyecto: "desc" }],
+    orderBy: { fecha_registro: "desc" },
   });
   return filas.map(aFila);
 }
 
-export async function contarPorAutor(autorId: number): Promise<number> {
-  return prisma.proyecto.count({ where: { autor_id: autorId } });
+/** Proyectos destacados y publicados para la página de inicio. */
+export async function listarDestacados(cantidad: number): Promise<ProyectoRow[]> {
+  const filas = await prisma.proyecto.findMany({
+    where: { estado: "PUBLICADO" },
+    include: INCLUDE_AUTOR,
+    orderBy: [{ destacado: "desc" }, { fecha_registro: "desc" }],
+    take: cantidad,
+  });
+  return filas.map(aFila);
 }

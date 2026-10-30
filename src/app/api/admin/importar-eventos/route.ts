@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/errors";
 import { getSesionDesdeCookies } from "@/lib/sesion";
 import { obtenerUsuarioPorId, requiereRol } from "@/lib/auth";
@@ -9,7 +8,7 @@ import { crear, contarPorTitulo } from "@/modelo/eventos/evento.repository";
  * POST /api/admin/importar-eventos — Importa el RSS de UNIMAYOR como EVENTO OFICIAL.
  * Solo ADMIN. Idempotente: no duplica por título.
  */
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const sesion = await getSesionDesdeCookies();
     const usuario = await obtenerUsuarioPorId(Number(sesion.userId));

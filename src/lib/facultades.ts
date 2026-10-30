@@ -13,3 +13,9 @@ export const facultadProgramas: Record<FacultadSlug, string[]> = {
   "sociales-admin": ["Administración de Empresas", "Derecho", "Contaduría Pública"],
   "educacion": ["Educación Primaria", "Educación Secundaria en Ciencias", "Educación Artística"],
 };
+
+/** Programas de una facultad a partir de su nombre (así se guarda en la BD). */
+export function programasDe(nombreFacultad: string): string[] {
+  const facultad = FACULTADES.find((f) => f.nombre === nombreFacultad);
+  return facultad ? facultadProgramas[facultad.slug] : [];
+}

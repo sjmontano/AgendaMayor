@@ -1,9 +1,11 @@
-import { prisma } from "@/lib/db";
 import { forbidden, unauthorized } from "@/lib/errors";
+import { getSesionDesdeCookies, getSesionOpcional } from "@/lib/sesion";
+import { buscarConRol } from "@/modelo/usuarios/usuario.repository";
 
 /**
  * Servicio de autorización.
- * Consulta el rol del usuario en la BD (Prisma) y aplica reglas de negocio.
+ * Obtiene el usuario de la sesión (a través del Repository de usuarios)
+ * y aplica las reglas de rol.
  */
 
 export type RolUsuario = "ESTUDIANTE" | "DOCENTE" | "ADMIN";
@@ -20,17 +22,14 @@ export interface UsuarioAuth {
 }
 
 /**
- * Dado el id_usuario, retorna el usuario completo con su rol.
- * Lanza 401 si no existe en la tabla usuario.
+ * Dado el id_usuario, retorna el usuario con su rol.
+ * Lanza 401 si no existe o está desactivado.
  */
 export async function obtenerUsuarioPorId(id: number): Promise<UsuarioAuth> {
-  const data = await prisma.usuario.findUnique({
-    where: { id_usuario: id },
-    include: { rolRef: true },
-  });
+  const data = await buscarConRol(id);
 
-  if (!data) {
-    throw unauthorized("Usuario no registrado en el sistema");
+  if (!data || !data.estado) {
+    throw unauthorized("Usuario no registrado o desactivado");
   }
 
   return {
@@ -43,6 +42,23 @@ export async function obtenerUsuarioPorId(id: number): Promise<UsuarioAuth> {
     nombre_rol: data.rolRef.nombre as RolUsuario,
     facultad: data.facultad,
   };
+}
+
+/** Usuario de la sesión actual. Lanza 401 si no hay sesión. */
+export async function usuarioActual(): Promise<UsuarioAuth> {
+  const sesion = await getSesionDesdeCookies();
+  return obtenerUsuarioPorId(Number(sesion.userId));
+}
+
+/** Igual que usuarioActual, pero retorna null si no hay sesión (para las páginas). */
+export async function usuarioActualOpcional(): Promise<UsuarioAuth | null> {
+  const sesion = await getSesionOpcional();
+  if (!sesion) return null;
+  try {
+    return await obtenerUsuarioPorId(Number(sesion.userId));
+  } catch {
+    return null;
+  }
 }
 
 /**

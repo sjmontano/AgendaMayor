@@ -1,22 +1,15 @@
-import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/errors";
-import { usuarioActual } from "@/lib/sesion-vista";
-import { ordenParaCliente } from "@/lib/orden-cliente";
-import { obtenerOrdenParaVer } from "@/modelo/taquilla/taquilla.service";
+import { usuarioActual } from "@/lib/auth";
+import { verOrden } from "@/modelo/taquilla/taquilla.service";
 
-export const dynamic = "force-dynamic";
-
-/** GET /api/ordenes/[codigo]?token=… — Estado y entradas de una orden. */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ codigo: string }> }
-) {
+/**
+ * GET /api/ordenes/[codigo] — Estado de la orden (consulta a Bold si sigue pendiente).
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ codigo: string }> }) {
   try {
     const { codigo } = await params;
-    const token = request.nextUrl.searchParams.get("token");
     const usuario = await usuarioActual();
-    const orden = await obtenerOrdenParaVer(codigo, token, usuario);
-    return ok(ordenParaCliente(orden));
+    return ok(await verOrden(codigo, usuario));
   } catch (e) {
     return err(e);
   }

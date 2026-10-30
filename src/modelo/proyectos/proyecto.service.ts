@@ -3,6 +3,7 @@ import { obtenerTransicion } from './proyecto.state';
 import { badRequest, notFound, forbidden } from '@/lib/errors';
 import type { ProyectoCreateDTO, ProyectoUpdateDTO, ProyectoQueryDTO } from './proyecto.dto';
 import type { EstadoProyecto } from './proyecto.state';
+import * as notificaciones from '../notificaciones/notificacion.repository';
 
 /**
  * Service de proyectos — lógica de negocio central.
@@ -15,6 +16,15 @@ export async function listarPublicados(filtros: ProyectoQueryDTO) {
 
 export async function listarMios(autorId: number) {
   return repo.listarPorAutor(autorId);
+}
+
+export async function listarDestacados(cantidad = 6) {
+  return repo.listarDestacados(cantidad);
+}
+
+/** Cola de revisión: el docente solo ve su facultad; el admin ve todas. */
+export async function colaDeRevision(facultad: string | null) {
+  return repo.listarPorEstado('EN_REVISION', facultad);
 }
 
 export async function obtenerPorId(id: number) {
@@ -83,6 +93,24 @@ export async function cambiarEstado(
   return actualizado;
 }
 
+/** El autor edita su proyecto. Solo se permite en BORRADOR o RECHAZADO (HU-09). */
+export async function editar(id: number, datos: ProyectoUpdateDTO) {
+  const proyecto = await repo.buscarPorId(id);
+  if (!proyecto) throw notFound('Proyecto no encontrado');
+  if (proyecto.estado !== 'BORRADOR' && proyecto.estado !== 'RECHAZADO') {
+    throw badRequest('Solo se puede editar un proyecto en borrador o rechazado');
+  }
+  // El autor solo cambia el contenido; el estado lo maneja la máquina de estados
+  return repo.actualizar(id, {
+    titulo: datos.titulo,
+    descripcion: datos.descripcion,
+    facultad: datos.facultad,
+    programa: datos.programa,
+    tipo: datos.tipo,
+    fotos: datos.fotos,
+  });
+}
+
 export async function destacar(id: number, destacado: boolean) {
   const proyecto = await repo.buscarPorId(id);
   if (!proyecto) throw notFound('Proyecto no encontrado');
@@ -91,6 +119,5 @@ export async function destacar(id: number, destacado: boolean) {
 }
 
 async function crearNotificacion(usuarioId: number, mensaje: string, proyectoId: number) {
-  const { crear } = await import('../notificaciones/notificacion.repository');
-  await crear(usuarioId, mensaje, proyectoId);
+  await notificaciones.crear(usuarioId, mensaje, proyectoId);
 }

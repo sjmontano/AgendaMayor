@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** /admin se unificó en /panel (la vista cambia según el rol). */
+/** La administración vive en el panel (se muestra según el rol). */
 export default function AdminPage() {
   redirect("/panel");
 }

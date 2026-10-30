@@ -1,51 +1,44 @@
 import type { Prisma } from "@prisma/client";
-import { verificarFirmaBold } from "@/lib/integraciones/pasarelas/bold";
+import { verificarFirma } from "@/lib/integraciones/bold";
 import * as repo from "@/modelo/taquilla/taquilla.repository";
-import { conciliarOrden } from "@/modelo/taquilla/taquilla.service";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-interface EventoBold {
-  id: string;
-  type: string;
-  subject?: string;
-  data?: { payment_id?: string; metadata?: { reference?: string | null } };
-}
+import { conciliar } from "@/modelo/taquilla/taquilla.service";
 
 /**
- * POST /api/pagos/bold/webhook — SALE_APPROVED / SALE_REJECTED / VOID_*.
- * Se verifica x-bold-signature y se concilia consultando el link en Bold.
- * Bold exige responder 200 en menos de 2 s y puede enviar duplicados.
+ * POST /api/pagos/bold/webhook — Bold avisa que un pago cambió (aprobado, rechazado…).
+ * 1. Se verifica la firma (que de verdad lo envía Bold).
+ * 2. Se ignora si ya se procesó (Bold puede repetir el aviso).
+ * 3. Se concilia la orden consultando a Bold.
  */
+interface AvisoBold {
+  id: string;
+  type: string;
+  data?: { metadata?: { reference?: string | null } };
+}
+
 export async function POST(request: Request) {
   const cuerpo = await request.text();
   try {
-    verificarFirmaBold(cuerpo, request.headers.get("x-bold-signature"));
-  } catch (e) {
-    console.error("[Bold webhook] firma inválida", e);
+    verificarFirma(cuerpo, request.headers.get("x-bold-signature"));
+  } catch {
     return Response.json({ error: "Firma inválida" }, { status: 400 });
   }
 
-  let evento: EventoBold;
-  try {
-    evento = JSON.parse(cuerpo) as EventoBold;
-  } catch {
-    return Response.json({ error: "JSON inválido" }, { status: 400 });
+  const aviso = JSON.parse(cuerpo) as AvisoBold;
+  if (await repo.pagoEventoExiste(aviso.id)) {
+    return Response.json({ recibido: true, duplicado: true });
   }
-  if (await repo.pagoEventoExiste("BOLD", evento.id)) return Response.json({ received: true, duplicate: true });
 
   try {
     let ordenId: number | null = null;
-    const referencia = evento.data?.metadata?.reference;
-    if (referencia) {
-      const orden = await repo.obtenerOrdenPorCodigo(referencia);
-      if (orden && orden.pasarela === "BOLD") ordenId = (await conciliarOrden(orden)).id_orden;
+    const codigoOrden = aviso.data?.metadata?.reference;
+    if (codigoOrden) {
+      const orden = await conciliar(codigoOrden);
+      ordenId = orden.id_orden;
     }
-    await repo.registrarPagoEvento("BOLD", evento.id, evento.type, ordenId, JSON.parse(cuerpo) as Prisma.InputJsonValue);
-    return Response.json({ received: true });
+    await repo.registrarPagoEvento(aviso.id, aviso.type, ordenId, JSON.parse(cuerpo) as Prisma.InputJsonValue);
+    return Response.json({ recibido: true });
   } catch (e) {
-    console.error("[Bold webhook] error procesando", e);
-    return Response.json({ error: "Error procesando el evento" }, { status: 500 });
+    console.error("[Bold webhook]", e);
+    return Response.json({ error: "Error procesando el aviso" }, { status: 500 });
   }
 }

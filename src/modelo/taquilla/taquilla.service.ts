@@ -1,339 +1,145 @@
-import type Stripe from "stripe";
-import { badRequest, conflict, forbidden, internal, notFound, serviceUnavailable } from "@/lib/errors";
-import { hashToken, codigoPublico, tokenSeguro } from "@/lib/codigos";
-import { fechaHoraLarga } from "@/lib/utils";
-import type { UsuarioAuth } from "@/lib/auth";
-import { reembolsarPago, stripeConfigurado } from "@/lib/integraciones/stripe";
-import { obtenerPasarela, type PasarelaId } from "@/lib/integraciones/pasarelas";
-import { obtenerPorId } from "@/modelo/eventos/evento.repository";
-import { puedeGestionarEvento } from "@/modelo/eventos/evento.service";
-import type { CheckoutDTO } from "./taquilla.dto";
+import { randomBytes } from "crypto";
+import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
+import { crearLinkDePago, consultarPago } from "@/lib/integraciones/bold";
+import { requiereRol, type UsuarioAuth } from "@/lib/auth";
 import * as repo from "./taquilla.repository";
+import * as eventos from "../eventos/evento.repository";
+import * as notificaciones from "../notificaciones/notificacion.repository";
+import type { CompraDTO } from "./taquilla.dto";
 
 /**
- * Service de taquilla — reglas de compra, pago y validación.
- * El cliente nunca decide el precio: se lee de TipoEntrada.
+ * Service de la taquilla (carrito → orden → pago con Bold → entradas).
+ *
+ * Flujo:
+ *  1. comprar(): valida el carrito, calcula el total con los precios de la BD,
+ *     crea la orden PENDIENTE y pide a Bold un link de pago.
+ *  2. El comprador paga en la página de Bold y vuelve a /checkout/resultado.
+ *  3. conciliar(): pregunta a Bold el estado del pago. Si está pagado,
+ *     la orden pasa a PAGADA y se generan las entradas con su código.
+ *     El webhook de Bold también llama a conciliar() (lo que llegue primero).
  */
-export type ResultadoCheckout = {
-  orden: repo.OrdenDetalleRow;
-  gratis: boolean;
-  url: string;
-};
+const MINUTOS_PARA_PAGAR = 30;
 
-export async function crearCheckout(
-  datos: CheckoutDTO,
-  usuario: UsuarioAuth | null,
-  ip: string | null,
-  baseUrl: string
-): Promise<ResultadoCheckout> {
-  const evento = await obtenerPorId(datos.eventoId);
-  if (!evento) throw notFound("Evento no encontrado");
-  if (!evento.activo || evento.estado !== "PUBLICADO") {
-    throw badRequest("El evento no está disponible para compra");
+/** Código legible para órdenes y entradas, ej. ENT-4F9A2C1B7D3E */
+function generarCodigo(prefijo: string) {
+  return `${prefijo}-${randomBytes(6).toString("hex").toUpperCase()}`;
+}
+
+/** URL pública del sitio (para que Bold devuelva al comprador). */
+function urlDelSitio(origenPeticion: string) {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? origenPeticion;
+}
+
+export async function comprar(datos: CompraDTO, usuario: UsuarioAuth, origenPeticion: string) {
+  const evento = await eventos.buscarDetalle(datos.eventoId);
+  if (!evento || !evento.permite_entradas) throw notFound("Este evento no vende entradas");
+  if (new Date(evento.fecha_fin) < new Date()) throw badRequest("El evento ya terminó");
+
+  const cantidadTotal = datos.items.reduce((suma, i) => suma + i.cantidad, 0);
+  if (cantidadTotal > evento.max_por_compra) {
+    throw badRequest(`Puedes comprar máximo ${evento.max_por_compra} entradas por orden`);
   }
 
-  const ahora = new Date();
-  if (new Date(evento.fecha_fin) < ahora) throw badRequest("El evento ya terminó");
-  if (evento.venta_inicio && ahora < new Date(evento.venta_inicio)) {
-    throw badRequest(`La venta abre el ${fechaHoraLarga(evento.venta_inicio)}`);
-  }
-  if (evento.venta_fin && ahora > new Date(evento.venta_fin)) {
-    throw badRequest("La venta de entradas ya cerró");
-  }
-
-  const tipo = evento.tipos_entrada.find(
-    (t) => t.id_tipo_entrada === datos.tipoEntradaId && t.activo
-  );
-  if (!tipo) throw notFound("Tipo de entrada no encontrado");
-
-  const maxPorCompra = Math.min(evento.max_por_compra > 0 ? evento.max_por_compra : 6, 20);
-  if (datos.cantidad > maxPorCompra) {
-    throw badRequest(`Máximo ${maxPorCompra} ${maxPorCompra === 1 ? "entrada" : "entradas"} por compra`);
-  }
-
-  const disponibles = tipo.cantidad_total - tipo.cantidad_vendida - tipo.cantidad_reservada;
-  if (disponibles < datos.cantidad) {
-    throw conflict(`Solo quedan ${Math.max(0, disponibles)} entradas de este tipo`);
-  }
-
-  const recientes = await repo.contarOrdenesRecientes(datos.correo, ip);
-  if (recientes >= 8) {
-    throw conflict("Demasiados intentos de compra seguidos. Espera unos minutos e inténtalo de nuevo.");
-  }
-
-  const base = baseUrl.replace(/\/+$/, "");
-  const codigo = codigoPublico("AM");
-  const token = tokenSeguro();
-  const tokenHash = hashToken(token);
-  const compradorId = usuario?.id_usuario ?? null;
-  const total = tipo.precio_centavos * datos.cantidad;
-
-  if (total === 0) {
-    const orden = await repo.crearOrdenGratis({
-      codigo,
-      token_hash: tokenHash,
-      evento_id: evento.id_evento,
-      tipo_entrada_id: tipo.id_tipo_entrada,
-      cantidad: datos.cantidad,
-      nombre: datos.nombre,
-      correo: datos.correo,
-      documento: datos.documento,
-      telefono: datos.telefono,
-      comprador_id: compradorId,
-      ip,
-    });
+  // Los precios y la disponibilidad se leen de la BD, nunca del navegador
+  const tipos = await repo.tiposDeEvento(evento.id_evento);
+  const items = datos.items.map((item) => {
+    const tipo = tipos.find((t) => t.id_tipo_entrada === item.tipoEntradaId);
+    if (!tipo) throw badRequest("Tipo de entrada no válido");
+    if (tipo.cantidad_total - tipo.cantidad_vendida < item.cantidad) {
+      throw conflict(`No quedan suficientes entradas "${tipo.nombre}"`);
+    }
     return {
-      orden,
-      gratis: true,
-      url: `${base}/entradas/${codigo}?token=${encodeURIComponent(token)}`,
+      tipo_entrada_id: tipo.id_tipo_entrada,
+      cantidad: item.cantidad,
+      precio_unitario_centavos: tipo.precio_centavos,
     };
-  }
-
-  const pasarela = obtenerPasarela(datos.pasarela as PasarelaId);
-  if (!pasarela.configurada()) {
-    throw serviceUnavailable(`Los pagos con ${pasarela.nombre} no están configurados en este momento. Elige otro método de pago.`);
-  }
-
-  const orden = await repo.reservarYCrearOrden({
-    codigo,
-    token_hash: tokenHash,
-    evento_id: evento.id_evento,
-    tipo_entrada_id: tipo.id_tipo_entrada,
-    cantidad: datos.cantidad,
-    precio_unitario_centavos: tipo.precio_centavos,
-    nombre: datos.nombre,
-    correo: datos.correo,
-    documento: datos.documento,
-    telefono: datos.telefono,
-    comprador_id: compradorId,
-    ip,
-    expira_en: new Date(Date.now() + 40 * 60 * 1000),
   });
+  const totalCentavos = items.reduce((suma, i) => suma + i.precio_unitario_centavos * i.cantidad, 0);
 
-  try {
-    const urlRetorno = `${base}/checkout/resultado?orden=${encodeURIComponent(orden.codigo)}&token=${encodeURIComponent(token)}`;
-    const pago = await pasarela.crearPago({
-      orden,
-      baseUrl: base,
-      token,
-      urlRetorno,
-      urlCancelar: `${base}/eventos/${orden.evento_id}?pago=cancelado`,
-      minutos: 30,
-    });
-    await repo.guardarPasarela(orden.id_orden, pasarela.id, pago.referencia);
-    return { orden, gratis: false, url: pago.url };
-  } catch (e) {
-    // Si la pasarela falla, liberamos de inmediato el cupo reservado.
-    await repo.liberarOrden(orden.id_orden, "CANCELADA");
-    throw e;
+  const orden = await repo.crearOrden({
+    codigo: generarCodigo("ORD"),
+    evento_id: evento.id_evento,
+    comprador_id: usuario.id_usuario,
+    nombre_comprador: `${usuario.nombre} ${usuario.apellido}`,
+    correo_comprador: usuario.correo,
+    total_centavos: totalCentavos,
+    expira_en: new Date(Date.now() + MINUTOS_PARA_PAGAR * 60_000),
+    items,
+  });
+  const urlResultado = `${urlDelSitio(origenPeticion)}/checkout/resultado?orden=${orden.codigo}`;
+
+  // Evento gratuito: no pasa por Bold, se confirma de una vez
+  if (totalCentavos === 0) {
+    await confirmar(orden);
+    return { urlPago: urlResultado };
+  }
+
+  const link = await crearLinkDePago({
+    referencia: orden.codigo,
+    totalPesos: totalCentavos / 100,
+    descripcion: `Agenda Mayor · ${evento.titulo}`,
+    correo: usuario.correo,
+    urlRetorno: urlResultado,
+    minutosVigencia: MINUTOS_PARA_PAGAR,
+  });
+  await repo.guardarReferenciaDePago(orden.id_orden, link.idLink);
+  return { urlPago: link.url };
+}
+
+/** Pregunta a Bold por el pago de una orden PENDIENTE y actualiza su estado. */
+export async function conciliar(codigo: string) {
+  const orden = await repo.buscarOrdenPorCodigo(codigo);
+  if (!orden) throw notFound("Orden no encontrada");
+  if (orden.estado !== "PENDIENTE" || !orden.pasarela_referencia) return orden;
+
+  const estado = await consultarPago(orden.pasarela_referencia);
+
+  if (estado === "PAGADA") {
+    await confirmar(orden);
+  } else if (estado === "RECHAZADA" || estado === "EXPIRADA") {
+    await repo.cerrarOrden(orden.id_orden, estado);
+  } else if (new Date(orden.expira_en) < new Date()) {
+    await repo.cerrarOrden(orden.id_orden, "EXPIRADA");
+  }
+  return (await repo.buscarOrdenPorCodigo(codigo))!;
+}
+
+async function confirmar(orden: repo.OrdenRow) {
+  const confirmada = await repo.confirmarPago(orden.id_orden, () => generarCodigo("ENT"));
+  if (confirmada && orden.comprador_id) {
+    await notificaciones.crear(
+      orden.comprador_id,
+      `Tu compra para "${orden.evento.titulo}" fue confirmada. Tus entradas están en Mis entradas.`,
+      null
+    );
   }
 }
 
-/**
- * Conciliación (Wompi / Bold, y respaldo de Stripe): pregunta a la pasarela
- * el estado real de una orden PENDIENTE y lo aplica. Idempotente: si ya
- * estaba pagada no hace nada. La disparan el webhook y la pantalla de resultado.
- */
-export async function conciliarOrden(
-  orden: repo.OrdenDetalleRow,
-  pistaTransaccion?: string | null
-): Promise<repo.OrdenDetalleRow> {
-  if (orden.estado !== "PENDIENTE" || orden.total_centavos === 0) return orden;
-  const pasarela = obtenerPasarela((orden.pasarela ?? "STRIPE") as PasarelaId);
-  if (!pasarela.configurada()) return orden;
-
-  let referencia = orden.pasarela_referencia ?? null;
-  if (!referencia && pistaTransaccion && pasarela.id === "WOMPI") {
-    await repo.guardarReferenciaSiFalta(orden.id_orden, pistaTransaccion);
-    referencia = pistaTransaccion;
-  }
-
-  const resultado = await pasarela
-    .consultarPago({ codigo: orden.codigo, pasarela_referencia: referencia })
-    .catch((e) => {
-      console.error(`[${pasarela.id}] consulta falló`, e);
-      return null;
-    });
-  if (!resultado) return orden;
-
-  if (resultado.estado === "APROBADO") {
-    if (resultado.transaccionId && pasarela.id === "WOMPI") {
-      await repo.guardarReferenciaSiFalta(orden.id_orden, resultado.transaccionId);
-    }
-    return repo.marcarOrdenPagada({
-      ordenId: orden.id_orden,
-      stripePaymentIntentId: pasarela.id === "STRIPE" ? resultado.transaccionId : undefined,
-      metodoPago: `${pasarela.id}:${resultado.metodo ?? "desconocido"}`.slice(0, 30),
-    });
-  }
-  if (resultado.estado === "RECHAZADO" || resultado.estado === "EXPIRADO") {
-    await repo.liberarOrden(orden.id_orden, resultado.estado === "RECHAZADO" ? "FALLIDA" : "EXPIRADA");
-    return (await repo.obtenerOrdenPorId(orden.id_orden)) ?? orden;
-  }
+/** La orden solo la puede ver quien la compró. */
+export async function verOrden(codigo: string, usuario: UsuarioAuth) {
+  const orden = await conciliar(codigo);
+  if (orden.comprador_id !== usuario.id_usuario) throw forbidden("Esta orden no es tuya");
   return orden;
 }
 
-async function ordenDeSesion(session: Stripe.Checkout.Session) {
-  const porSesion = await repo.obtenerOrdenPorStripeSession(session.id);
-  if (porSesion) return porSesion;
-  const codigo = session.client_reference_id ?? session.metadata?.orden;
-  return codigo ? repo.obtenerOrdenPorCodigo(codigo) : null;
+export async function misEntradas(usuario: UsuarioAuth) {
+  return repo.entradasDeUsuario(usuario.id_usuario);
 }
 
-export async function procesarPagoSesion(
-  session: Stripe.Checkout.Session
-): Promise<repo.OrdenDetalleRow | null> {
-  // Con tarjeta el pago es síncrono; los métodos asíncronos llegan por
-  // checkout.session.async_payment_succeeded y comparten este mismo camino.
-  if (session.payment_status !== "paid") return null;
+/** Validación en la puerta del evento (solo DOCENTE o ADMIN). */
+export async function validarEntrada(codigo: string, usuario: UsuarioAuth) {
+  requiereRol(usuario, "DOCENTE", "ADMIN");
 
-  const orden = await ordenDeSesion(session);
-  if (!orden) throw notFound("Orden no encontrada para la sesión de Stripe");
-  if (orden.estado === "REEMBOLSADA" || orden.estado === "CANCELADA") {
-    return orden;
-  }
+  const entrada = await repo.buscarEntrada(codigo);
+  if (!entrada) throw notFound("La entrada no existe");
 
-  const paymentIntent =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.payment_intent?.id ?? null;
+  const usada = await repo.usarEntrada(codigo, usuario.id_usuario);
+  if (!usada) throw conflict("Esta entrada ya fue usada");
 
-  // Si el organizador canceló el evento mientras el comprador pagaba, no se
-  // emiten entradas: se devuelve el dinero y la orden queda reembolsada.
-  if (orden.evento.estado === "CANCELADO") {
-    if (orden.total_centavos > 0 && paymentIntent) {
-      if (!stripeConfigurado()) {
-        throw serviceUnavailable("Stripe no está configurado para devolver el pago");
-      }
-      await reembolsarPago(paymentIntent, orden.total_centavos);
-    }
-    const pagada = await repo.marcarOrdenPagada({
-      ordenId: orden.id_orden,
-      stripeSessionId: session.id,
-      stripePaymentIntentId: paymentIntent,
-      metodoPago: "card",
-    });
-    return (await repo.marcarOrdenReembolsada(pagada.id_orden)) ?? pagada;
-  }
-
-  return repo.marcarOrdenPagada({
-    ordenId: orden.id_orden,
-    stripeSessionId: session.id,
-    stripePaymentIntentId: paymentIntent,
-    metodoPago: "card",
-  });
-}
-
-export async function procesarSesionExpirada(session: Stripe.Checkout.Session): Promise<boolean> {
-  const orden = await ordenDeSesion(session);
-  if (!orden) return false;
-  return repo.liberarOrden(orden.id_orden, "EXPIRADA");
-}
-
-export async function procesarPagoFallido(session: Stripe.Checkout.Session): Promise<boolean> {
-  const orden = await ordenDeSesion(session);
-  if (!orden) return false;
-  return repo.liberarOrden(orden.id_orden, "FALLIDA");
-}
-
-export async function procesarReembolsoStripe(
-  paymentIntentId: string
-): Promise<repo.OrdenDetalleRow | null> {
-  const orden = await repo.obtenerOrdenPorPaymentIntent(paymentIntentId);
-  if (!orden) return null;
-  return repo.marcarOrdenReembolsada(orden.id_orden);
-}
-
-/**
- * Acceso a una orden/entradas: token secreto, comprador autenticado,
- * organizador del evento o ADMIN.
- */
-export async function obtenerOrdenParaVer(
-  codigo: string,
-  token: string | null,
-  usuario: UsuarioAuth | null,
-  /** Id de transacción que la pasarela añade al volver (Wompi: ?id=). */
-  pistaTransaccion?: string | null
-): Promise<repo.OrdenDetalleRow> {
-  const orden = await repo.obtenerOrdenPorCodigo(codigo);
-  if (!orden) throw notFound("Orden no encontrada");
-
-  const porToken = token ? await repo.verificarTokenOrden(codigo, hashToken(token)) : false;
-  const porSesion = usuario
-    ? orden.comprador_id === usuario.id_usuario ||
-      puedeGestionarEvento(usuario, {
-        autor_id: orden.evento.autor.id_usuario,
-        tipo: orden.evento.tipo,
-        facultad: orden.evento.facultad,
-      })
-    : false;
-
-  if (!porToken && !porSesion) throw notFound("Orden no encontrada");
-  return conciliarOrden(orden, pistaTransaccion);
-}
-
-export async function listarMisEntradas(usuario: UsuarioAuth): Promise<repo.OrdenDetalleRow[]> {
-  return repo.listarOrdenesPorComprador(usuario.id_usuario);
-}
-
-export async function validarCodigo(
-  codigo: string,
-  usuario: UsuarioAuth
-): Promise<repo.ResultadoValidacion> {
-  const entrada = await repo.obtenerEntradaPorCodigo(codigo);
-  if (!entrada) throw notFound("Entrada no encontrada");
-
-  const evento = await obtenerPorId(entrada.evento.id_evento);
-  if (!evento) throw notFound("Evento no encontrado");
-  if (!puedeGestionarEvento(usuario, evento)) {
-    throw forbidden("Solo el organizador o la administración pueden validar entradas");
-  }
-  if (evento.estado === "CANCELADO") {
-    throw badRequest("El evento fue cancelado; esta entrada no puede validarse");
-  }
-
-  return repo.validarEntrada(codigo, usuario.id_usuario);
-}
-
-export async function listarOrdenesDelEvento(
-  eventoId: number,
-  usuario: UsuarioAuth
-): Promise<repo.OrdenDetalleRow[]> {
-  const evento = await obtenerPorId(eventoId);
-  if (!evento) throw notFound("Evento no encontrado");
-  if (!puedeGestionarEvento(usuario, evento)) {
-    throw forbidden("Solo el organizador o la administración pueden ver las ventas");
-  }
-  return repo.listarOrdenesDeEvento(eventoId);
-}
-
-/** Reembolso total. El organizador o ADMIN lo ejecutan desde el panel. */
-export async function reembolsarOrden(
-  codigo: string,
-  usuario: UsuarioAuth
-): Promise<repo.OrdenDetalleRow> {
-  const orden = await repo.obtenerOrdenPorCodigo(codigo);
-  if (!orden) throw notFound("Orden no encontrada");
-  const puedeGestionar = puedeGestionarEvento(usuario, {
-    autor_id: orden.evento.autor.id_usuario,
-    tipo: orden.evento.tipo,
-    facultad: orden.evento.facultad,
-  });
-  if (!puedeGestionar) {
-    throw forbidden("Solo el organizador o la administración pueden reembolsar");
-  }
-  if (orden.estado !== "PAGADA") {
-    throw badRequest(`La orden está ${orden.estado}; solo se reembolsan órdenes pagadas`);
-  }
-
-  if (orden.stripe_payment_intent_id && orden.total_centavos > 0) {
-    if (!stripeConfigurado()) {
-      throw serviceUnavailable("Stripe no está configurado para procesar el reembolso");
-    }
-    await reembolsarPago(orden.stripe_payment_intent_id, orden.total_centavos);
-  }
-
-  const actualizada = await repo.marcarOrdenReembolsada(orden.id_orden);
-  if (!actualizada) throw conflict("No se pudo marcar la orden como reembolsada");
-  return actualizada;
+  return {
+    codigo: entrada.codigo,
+    evento: entrada.evento.titulo,
+    tipo: entrada.tipoEntrada.nombre,
+    asistente: entrada.nombre_asistente,
+  };
 }

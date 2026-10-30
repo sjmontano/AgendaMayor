@@ -1,20 +1,15 @@
-import { BtnMayor } from "@/components/ui/botones";
+import Link from "next/link";
 
-/** 404 institucional. */
-export default function NotFound() {
+export default function NoEncontrado() {
   return (
-    <div className="bg-grid-light mx-auto flex max-w-6xl flex-col items-center px-4 py-24 text-center sm:px-6">
-      <p className="text-[clamp(5rem,14vw,9rem)] leading-none font-black tracking-[-0.05em] text-unimayor-900">
-        4<span className="text-gold">0</span>4
-      </p>
-      <h1 className="mt-4 text-2xl font-extrabold text-ink">Esta página no está en la agenda</h1>
-      <p className="mt-2 max-w-md text-muted">Puede que el enlace haya cambiado o que el proyecto ya no esté publicado.</p>
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <BtnMayor href="/">Ir al inicio</BtnMayor>
-        <BtnMayor href="/proyectos" variante="secondary">
-          Explorar la vitrina
-        </BtnMayor>
+    <section className="seccion">
+      <div className="contenedor vacio">
+        <h1>Página no encontrada</h1>
+        <p>Lo que buscas no existe o ya no está disponible.</p>
+        <Link href="/" className="btn btn-primario">
+          Volver al inicio
+        </Link>
       </div>
-    </div>
+    </section>
   );
 }

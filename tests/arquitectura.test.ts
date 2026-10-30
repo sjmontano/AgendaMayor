@@ -5,7 +5,7 @@ import { join } from "path";
 /**
  * Test de arquitectura: verifica la regla de capas por análisis estático.
  * - Vistas (components/**) nunca importan el Modelo (@/modelo).
- * - Services nunca mencionan supabase (solo el Repository accede a datos).
+ * - Solo los *.repository.ts usan Prisma (patrón Repository).
  */
 function archivosTs(dir: string): string[] {
   const out: string[] = [];
@@ -32,10 +32,10 @@ describe("arquitectura por capas", () => {
     expect(violaciones).toEqual([]);
   });
 
-  it("*.service.ts no importa supabase (ignora comentarios)", () => {
-    const violaciones = archivosTs(join(SRC, "modelo"))
-      .filter((f) => f.endsWith(".service.ts"))
-      .filter((f) => /supabase/i.test(sinComentarios(readFileSync(f, "utf8"))));
+  it("solo los *.repository.ts usan la conexión a la BD (@/lib/db)", () => {
+    const violaciones = archivosTs(SRC)
+      .filter((f) => !f.endsWith(".repository.ts"))
+      .filter((f) => sinComentarios(readFileSync(f, "utf8")).includes("@/lib/db"));
     expect(violaciones).toEqual([]);
   });
 });

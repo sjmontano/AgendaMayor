@@ -1,39 +1,32 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PublicarForm } from "@/components/proyectos/publicar-form";
-import { EncabezadoSeccion } from "@/components/ui/seccion";
-import { usuarioActual } from "@/lib/sesion-vista";
-import { obtenerPerfilPublico } from "@/modelo/usuarios/usuario.service";
+import { usuarioActualOpcional } from "@/lib/auth";
+import { listarEafi } from "@/modelo/eventos/evento.repository";
 
-export const metadata: Metadata = { title: "Publicar proyecto" };
+export const dynamic = "force-dynamic";
 
-/** /proyectos/nuevo — HU-06. Ruta privada; precarga facultad/programa del perfil. */
+/** Publicar proyecto (HU-06). Requiere sesión. */
 export default async function NuevoProyectoPage() {
-  const usuario = await usuarioActual();
-  if (!usuario) redirect("/ingresar?siguiente=/proyectos/nuevo");
-  const perfil = await obtenerPerfilPublico(usuario.username).catch(() => null);
+  const usuario = await usuarioActualOpcional();
+  if (!usuario) redirect("/ingresar");
+
+  const eventosEafi = (await listarEafi()).map((e) => ({ id: e.id_evento, titulo: e.titulo }));
 
   return (
-    <div className="bg-unimayor-tint">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
-        <EncabezadoSeccion
-          como="h1"
-          eyebrow="Publicar"
-          titulo="Nuevo proyecto"
-          descripcion="Cuatro pasos y queda en revisión. Puedes salir cuando quieras: guardamos tu borrador."
-        />
-        <div className="mt-8">
-          <PublicarForm
-            autor={{
-              username: usuario.username,
-              nombre: usuario.nombre,
-              apellido: usuario.apellido,
-              facultad: perfil?.facultad ?? usuario.facultad,
-              programa: perfil?.programa ?? null,
-            }}
-          />
+    <>
+      <section className="encabezado-pagina">
+        <div className="contenedor">
+          <h1>Publicar proyecto</h1>
+          <p>Tu proyecto quedará en revisión hasta que un docente de tu facultad lo apruebe.</p>
         </div>
-      </div>
-    </div>
+      </section>
+      <section className="seccion">
+        <div className="contenedor" style={{ maxWidth: 820 }}>
+          <div className="caja">
+            <PublicarForm facultadInicial={usuario.facultad ?? ""} eventosEafi={eventosEafi} />
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

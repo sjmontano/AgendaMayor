@@ -1,6 +1,6 @@
 import * as repo from './puesto.repository';
 import { notFound, badRequest, conflict } from '@/lib/errors';
-import type { PuestoCreateDTO, PuestoUpdateDTO } from './puesto.dto';
+import type { PuestoCreateDTO } from './puesto.dto';
 
 /**
  * Service de puestos — lógica de negocio para ubicación de proyectos en ferias.
@@ -58,4 +58,9 @@ export async function eliminar(id: number) {
   }
 
   return repo.eliminar(id);
+}
+
+/** Puesto asignado a un proyecto (o null si no tiene). */
+export async function obtenerPorProyecto(proyectoId: number) {
+  return repo.buscarPorProyecto(proyectoId);
 }

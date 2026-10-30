@@ -1,13 +1,12 @@
 import { NextRequest } from 'next/server';
-import { ok, err, badRequest, forbidden } from '@/lib/errors';
-import { getSesionDesdeCookies } from '@/lib/sesion';
-import { obtenerUsuarioPorId, puedeAvalar } from '@/lib/auth';
+import { ok, err, forbidden } from '@/lib/errors';
+import { usuarioActual, puedeAvalar, requiereRol } from '@/lib/auth';
 import * as proyectoService from '@/modelo/proyectos/proyecto.service';
 import { ProyectoUpdateSchema } from '@/modelo/proyectos/proyecto.dto';
 import { z } from 'zod';
 
 const AccionSchema = z.object({
-  accion: z.enum(['publicar', 'rechazar', 'destacar', 'eliminar', 'reenviar']),
+  accion: z.enum(['publicar', 'rechazar', 'destacar', 'reenviar', 'eliminar']),
   motivoRechazo: z.string().max(500).optional(),
   destacado: z.boolean().optional(),
 });
@@ -29,10 +28,12 @@ export async function GET(
 }
 
 /**
- * PATCH /api/proyectos/[id] — Actualizar proyecto
- * Body: { titulo, descripcion, facultad, programa, tipo, fotos } para el autor
- * Body: { accion: 'publicar'|'rechazar'|'destacar', motivoRechazo? } para docente/admin
- * Body: { accion: 'reenviar'|'eliminar' } para el autor (RECHAZADO → EN_REVISION)
+ * PATCH /api/proyectos/[id]
+ * - Autor: { titulo, descripcion, ... } edita su proyecto (BORRADOR o RECHAZADO).
+ * - Autor: { accion: 'reenviar' } manda de nuevo a revisión un proyecto RECHAZADO.
+ * - Docente/Admin: { accion: 'publicar' | 'rechazar' | 'destacar', motivoRechazo? }.
+ * - Autor o Admin: { accion: 'eliminar' }.
+ * Las transiciones las valida la máquina de estados (patrón State).
  */
 export async function PATCH(
   request: NextRequest,
@@ -41,59 +42,41 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const sesion = await getSesionDesdeCookies();
-    const usuario = await obtenerUsuarioPorId(Number(sesion.userId));
-    const proyectoId = Number(id);
+    const usuario = await usuarioActual();
+    const proyecto = await proyectoService.obtenerPorId(Number(id));
+    const esAutor = proyecto.autor_id === usuario.id_usuario;
 
-    // Si viene "accion", es una transición de estado (State pattern)
-    if ('accion' in body) {
-      const accion = AccionSchema.parse(body);
-      const actual = await proyectoService.obtenerPorId(proyectoId);
-
-      // Moderación: el docente solo avala proyectos de su facultad
-      if (accion.accion === 'publicar' || accion.accion === 'rechazar' || accion.accion === 'destacar') {
-        puedeAvalar(usuario, actual.facultad);
-      }
-      // El estudiante solo opera sobre sus propios proyectos
-      if (usuario.nombre_rol === 'ESTUDIANTE' && actual.autor_id !== usuario.id_usuario) {
-        throw forbidden('Solo el autor puede modificar este proyecto');
-      }
-
-      switch (accion.accion) {
-        case 'publicar':
-          await proyectoService.cambiarEstado(proyectoId, 'PUBLICADO', usuario.nombre_rol);
-          break;
-        case 'rechazar':
-          await proyectoService.cambiarEstado(proyectoId, 'RECHAZADO', usuario.nombre_rol, accion.motivoRechazo);
-          break;
-        case 'destacar':
-          await proyectoService.destacar(proyectoId, accion.destacado ?? true);
-          break;
-        case 'reenviar':
-          await proyectoService.cambiarEstado(proyectoId, 'EN_REVISION', usuario.nombre_rol);
-          break;
-        case 'eliminar':
-          await proyectoService.cambiarEstado(proyectoId, 'ELIMINADO', usuario.nombre_rol);
-          break;
-      }
-      return ok({ message: `Acción "${accion.accion}" ejecutada` });
+    // Sin "accion": edición normal del autor
+    if (!('accion' in body)) {
+      if (!esAutor) throw forbidden('Solo el autor puede editar su proyecto');
+      const datos = ProyectoUpdateSchema.parse(body);
+      return ok(await proyectoService.editar(proyecto.id_proyecto, datos));
     }
 
-    // Si no viene "accion", es una edición normal del autor
-    // El autor edita contenido; estado/destacado/motivo solo cambian por transición
-    const datos = ProyectoUpdateSchema.omit({ estado: true, destacado: true, motivoRechazo: true }).parse(body);
-    const proyecto = await proyectoService.obtenerPorId(proyectoId);
-
-    if (proyecto.autor_id !== usuario.id_usuario) {
-      throw forbidden('Solo el autor puede editar su proyecto');
+    const accion = AccionSchema.parse(body);
+    switch (accion.accion) {
+      case 'publicar':
+        puedeAvalar(usuario, proyecto.facultad);
+        await proyectoService.cambiarEstado(proyecto.id_proyecto, 'PUBLICADO', usuario.nombre_rol);
+        break;
+      case 'rechazar':
+        puedeAvalar(usuario, proyecto.facultad);
+        await proyectoService.cambiarEstado(proyecto.id_proyecto, 'RECHAZADO', usuario.nombre_rol, accion.motivoRechazo);
+        break;
+      case 'destacar':
+        requiereRol(usuario, 'DOCENTE', 'ADMIN');
+        await proyectoService.destacar(proyecto.id_proyecto, accion.destacado ?? true);
+        break;
+      case 'reenviar':
+        if (!esAutor) throw forbidden('Solo el autor puede reenviar su proyecto');
+        await proyectoService.cambiarEstado(proyecto.id_proyecto, 'EN_REVISION', usuario.nombre_rol);
+        break;
+      case 'eliminar':
+        if (!esAutor && usuario.nombre_rol !== 'ADMIN') throw forbidden('Solo el autor o un administrador');
+        await proyectoService.cambiarEstado(proyecto.id_proyecto, 'ELIMINADO', usuario.nombre_rol);
+        break;
     }
-    if (proyecto.estado === 'PUBLICADO') {
-      throw badRequest('Un proyecto publicado no se puede editar');
-    }
-
-    const { actualizar } = await import('@/modelo/proyectos/proyecto.repository');
-    const actualizado = await actualizar(proyectoId, datos);
-    return ok(actualizado);
+    return ok({ message: `Acción "${accion.accion}" ejecutada` });
   } catch (e) {
     return err(e);
   }

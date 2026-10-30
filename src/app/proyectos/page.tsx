@@ -1,132 +1,118 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
+import { ProyectoCard } from "@/components/proyectos/proyecto-card";
 import { listarPublicados } from "@/modelo/proyectos/proyecto.service";
 import { ProyectoQuerySchema } from "@/modelo/proyectos/proyecto.dto";
-import { ProyectoCard } from "@/components/vitrina/proyecto-card";
-import { Filtros } from "@/components/vitrina/filtros";
-import { EncabezadoSeccion } from "@/components/ui/seccion";
-import { Reveal } from "@/components/ui/reveal";
-import { Vacio } from "@/components/ui/vacio";
-import { BtnMayor } from "@/components/ui/botones";
-import { cn } from "@/lib/utils";
+import { FACULTADES } from "@/lib/facultades";
 
-export const metadata: Metadata = { title: "Vitrina de proyectos" };
 export const dynamic = "force-dynamic";
 
-const POR_PAGINA = 12;
+interface Props {
+  searchParams: Promise<{ q?: string; facultad?: string; tipo?: string; page?: string }>;
+}
 
 /**
- * Vitrina /proyectos — HU-04. Filtros en el query string (URL compartible).
- * Server Component: lee el Modelo directo (sin self-fetch HTTP, que falla en Vercel).
+ * Vitrina de proyectos (HU-07). Los filtros son un formulario GET normal:
+ * al enviarlo, los valores viajan en la URL y la página se vuelve a generar.
  */
-export default async function ProyectosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ facultad?: string; tipo?: string; q?: string; page?: string }>;
-}) {
-  const sp = await searchParams;
-  const tipoValido = ["INSTITUCIONAL", "EAFI", "COMUNIDAD"].includes(sp.tipo ?? "") ? sp.tipo : undefined;
+export default async function ProyectosPage({ searchParams }: Props) {
+  const params = await searchParams;
   const filtros = ProyectoQuerySchema.parse({
-    facultad: sp.facultad || undefined,
-    tipo: tipoValido,
-    q: sp.q || undefined,
-    page: sp.page ?? "1",
-    limit: String(POR_PAGINA),
+    q: params.q || undefined,
+    facultad: params.facultad || undefined,
+    tipo: params.tipo || undefined,
+    page: params.page ?? 1,
+    limit: 12,
   });
+  const { data: proyectos, total } = await listarPublicados(filtros);
+  const totalPaginas = Math.max(1, Math.ceil(total / filtros.limit));
 
-  const resultado = await listarPublicados(filtros).catch(() => ({ data: [], total: 0 }));
-  const data = resultado.data.map((p) => ({ ...p, autor: p.autor ?? null }));
-  const total = resultado.total;
-  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
-  const page = Math.min(filtros.page, paginas);
-
-  const enlacePagina = (p: number) => {
-    const q = new URLSearchParams();
-    if (sp.facultad) q.set("facultad", sp.facultad);
-    if (tipoValido) q.set("tipo", tipoValido);
-    if (sp.q) q.set("q", sp.q);
-    q.set("page", String(p));
-    return `/proyectos?${q.toString()}`;
-  };
-  const hayFiltros = Boolean(sp.facultad || tipoValido || sp.q);
+  // Mantiene los filtros al cambiar de página
+  function urlPagina(pagina: number) {
+    const query = new URLSearchParams({ ...params, page: String(pagina) } as Record<string, string>);
+    return `/proyectos?${query.toString()}`;
+  }
 
   return (
     <>
-      <section className="border-b border-line bg-unimayor-tint">
-        <div className="mx-auto max-w-6xl px-4 pt-12 pb-8 sm:px-6">
-          <EncabezadoSeccion
-            como="h1"
-            eyebrow="Vitrina"
-            titulo={sp.facultad ? `Proyectos de ${sp.facultad}` : "Proyectos de la comunidad"}
-            descripcion="Trabajos de aula, semilleros y opciones de grado con aval docente."
-          />
-          <div className="mt-8">
-            <Suspense>
-              <Filtros total={total} />
-            </Suspense>
-          </div>
+      <section className="encabezado-pagina">
+        <div className="contenedor">
+          <span className="etiqueta-superior" style={{ color: "var(--dorado)" }}>
+            Vitrina
+          </span>
+          <h1>Proyectos estudiantiles</h1>
+          <p>Trabajos publicados y avalados por los docentes de cada facultad.</p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6" aria-label="Resultados" aria-live="polite">
-        {data.length === 0 ? (
-          <Vacio
-            titulo={hayFiltros ? "No encontramos proyectos con estos filtros" : "Aún no hay proyectos publicados"}
-            texto={hayFiltros ? "Prueba con otra palabra o quita algún filtro." : "Publica el primero y aparecerá aquí cuando tu facultad lo avale."}
-            accion={
-              hayFiltros ? (
-                <BtnMayor href="/proyectos" variante="secondary">
-                  Limpiar filtros
-                </BtnMayor>
-              ) : (
-                <BtnMayor href="/proyectos/nuevo">Publicar proyecto</BtnMayor>
-              )
-            }
-          />
-        ) : (
-          <>
-            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {data.map((p, i) => (
-                <Reveal como="li" key={p.id_proyecto} orden={i % 6}>
-                  <ProyectoCard proyecto={p} />
-                </Reveal>
-              ))}
-            </ul>
+      <section className="seccion">
+        <div className="contenedor">
+          <form className="filtros" method="GET">
+            <div className="campo">
+              <label htmlFor="q">Buscar</label>
+              <input id="q" name="q" defaultValue={filtros.q} placeholder="Título o descripción" />
+            </div>
+            <div className="campo">
+              <label htmlFor="facultad">Facultad</label>
+              <select id="facultad" name="facultad" defaultValue={filtros.facultad ?? ""}>
+                <option value="">Todas</option>
+                {FACULTADES.map((f) => (
+                  <option key={f.slug} value={f.nombre}>
+                    {f.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="campo">
+              <label htmlFor="tipo">Tipo</label>
+              <select id="tipo" name="tipo" defaultValue={filtros.tipo ?? ""}>
+                <option value="">Todos</option>
+                <option value="INSTITUCIONAL">Institucional</option>
+                <option value="EAFI">EAFI</option>
+                <option value="COMUNIDAD">Comunidad</option>
+              </select>
+            </div>
+            <button className="btn btn-primario" type="submit">
+              Filtrar
+            </button>
+          </form>
 
-            {paginas > 1 && (
-              <nav className="mt-12 flex items-center justify-center gap-1.5" aria-label="Paginación">
-                {page > 1 && (
-                  <Link href={enlacePagina(page - 1)} className="flex h-10 items-center rounded-box px-3 text-sm font-bold text-unimayor-900 hover:bg-unimayor-100" aria-label="Página anterior">
-                    ← Anterior
-                  </Link>
-                )}
-                {Array.from({ length: paginas }, (_, i) => i + 1)
-                  .filter((n) => n === 1 || n === paginas || Math.abs(n - page) <= 1)
-                  .map((n, i, arr) => (
-                    <span key={n} className="flex items-center gap-1.5">
-                      {i > 0 && n - arr[i - 1] > 1 && <span className="px-1 text-muted">…</span>}
-                      <Link
-                        href={enlacePagina(n)}
-                        aria-current={n === page ? "page" : undefined}
-                        className={cn(
-                          "flex size-10 items-center justify-center rounded-box text-sm font-bold tabular-nums transition-colors",
-                          n === page ? "bg-unimayor-900 text-white shadow-soft" : "text-ink hover:bg-unimayor-100"
-                        )}
-                      >
-                        {n}
-                      </Link>
-                    </span>
-                  ))}
-                {page < paginas && (
-                  <Link href={enlacePagina(page + 1)} className="flex h-10 items-center rounded-box px-3 text-sm font-bold text-unimayor-900 hover:bg-unimayor-100" aria-label="Página siguiente">
-                    Siguiente →
-                  </Link>
-                )}
-              </nav>
-            )}
-          </>
-        )}
+          <div className="titulo-seccion">
+            <p className="subtitulo">
+              {total} {total === 1 ? "proyecto encontrado" : "proyectos encontrados"}
+            </p>
+            <Link href="/proyectos/nuevo" className="btn btn-dorado btn-pequeno">
+              + Publicar proyecto
+            </Link>
+          </div>
+
+          {proyectos.length === 0 ? (
+            <p className="vacio">No hay proyectos con esos filtros.</p>
+          ) : (
+            <div className="grilla">
+              {proyectos.map((p) => (
+                <ProyectoCard key={p.id_proyecto} proyecto={p} />
+              ))}
+            </div>
+          )}
+
+          {totalPaginas > 1 && (
+            <nav className="paginacion">
+              {filtros.page > 1 && (
+                <Link href={urlPagina(filtros.page - 1)} className="btn btn-borde btn-pequeno">
+                  ← Anterior
+                </Link>
+              )}
+              <span className="etiqueta">
+                Página {filtros.page} de {totalPaginas}
+              </span>
+              {filtros.page < totalPaginas && (
+                <Link href={urlPagina(filtros.page + 1)} className="btn btn-borde btn-pequeno">
+                  Siguiente →
+                </Link>
+              )}
+            </nav>
+          )}
+        </div>
       </section>
     </>
   );

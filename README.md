@@ -9,255 +9,270 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)
 ![Vitest](https://img.shields.io/badge/Vitest-3-729B1B?logo=vitest)
 
-**SNIES 3104 · NIT 891.500.759-1**
+**Proyecto integrador · Arquitectura de Software**
+
+**Aplicación en línea: https://agenda-mayor.vercel.app**
 
 </div>
 
 ---
 
-## Contexto del Proyecto
+## Tabla de contenido
 
-**Agenda Mayor** es la plataforma web de divulgación académica de la Institución Universitaria Colegio Mayor del Cauca (Unimayor). Funciona como vitrina permanente de trabajos de aula, semilleros y opciones de grado, junto con una cartelera de eventos académicos y perfiles públicos de estudiantes y docentes.
+1. [Contexto del proyecto](#1-contexto-del-proyecto)
+2. [Equipo](#2-equipo)
+3. [Cómo probar la aplicación (usuarios de prueba)](#3-cómo-probar-la-aplicación)
+4. [Guía de revisión paso a paso](#4-guía-de-revisión-paso-a-paso)
+5. [Tecnologías](#5-tecnologías)
+6. [Arquitectura: MVC por capas](#6-arquitectura-mvc-por-capas)
+7. [Patrones de diseño implementados](#7-patrones-de-diseño-implementados)
+8. [Flujo de compra con Bold](#8-flujo-de-compra-con-bold)
+9. [Roles y permisos](#9-roles-y-permisos)
+10. [Modelo de datos](#10-modelo-de-datos)
+11. [API REST](#11-api-rest)
+12. [Historias de usuario y trazabilidad](#12-historias-de-usuario-y-trazabilidad)
+13. [Pruebas automáticas](#13-pruebas-automáticas)
+14. [Decisiones de diseño](#14-decisiones-de-diseño)
+15. [Instalación local](#15-instalación-local)
+16. [Despliegue](#16-despliegue)
 
-El sistema está diseñado para que cualquier estudiante con correo institucional pueda publicar su proyecto, recibir el aval de un docente, y verlo destacado en la vitrina — sin costos, sin inscripciones, completamente informativo y gratuito.
+---
 
-### Alcance funcional
+## 1. Contexto del proyecto
 
-| Módulo | Descripción |
+**Agenda Mayor** es la plataforma web de divulgación académica de la Institución Universitaria Colegio Mayor del Cauca. Reúne en un solo lugar:
+
+- una **vitrina** de los proyectos de los estudiantes, que un docente revisa antes de publicarlos;
+- una **cartelera** de eventos institucionales (oficiales, ferias EAFI y eventos de la comunidad);
+- una **taquilla** para comprar entradas a los eventos que lo requieran, con pago en línea por **Bold**.
+
+| Módulo | Qué hace |
 |---|---|
-| **Vitrina de Proyectos** | Catálogo público con filtros por facultad, tipo y estado. Cards con hover shadow, detalle con puesto asignado. |
-| **Cartelera de Eventos** | Eventos de la BD (OFICIAL, EAFI, COMUNIDAD) + eventos en vivo del feed RSS de unimayor.edu.co. |
-| **Perfiles Públicos** | Username, bio, facultad, programa, proyectos publicados y eventos creados. |
-| **Publicación** | Formulario con validación Zod,	State Machine (BORRADOR → EN_REVISION → PUBLICADO/RECHAZADO). |
-| **Aval Docente** | Docente revisa y aprueba/rechaza proyectos de su facultad. Notificaciones en tiempo real. |
-| **Administración** | Moderación de proyectos, importación de eventos RSS, gestión de puestos EAFI. |
-| **Autenticación** | Sesión propia (email/contraseña con bcrypt + cookie JWT httpOnly), registro con correo @unimayor.edu.co. |
+| **Usuarios y seguridad** | Registro con correo `@unimayor.edu.co`, inicio de sesión (contraseña cifrada con bcrypt + cookie JWT) y control de acceso por roles: ESTUDIANTE, DOCENTE y ADMIN. |
+| **Vitrina de proyectos** (catálogo) | Catálogo público con filtros por facultad, tipo y texto. Detalle con el puesto asignado en la feria EAFI. |
+| **Publicación y aval** | El estudiante publica; el docente de su facultad aprueba o rechaza con motivo (máquina de estados). |
+| **Cartelera de eventos** | Eventos OFICIAL, EAFI y COMUNIDAD (cada rol crea los suyos) y publicaciones del portal UNIMAYOR por RSS. |
+| **Carrito y pedido (checkout)** | El usuario elige cuántas entradas quiere de cada tipo; se crea una orden con el total calculado en el servidor. |
+| **Pasarela de pagos** | La orden se paga en Bold (tarjeta, PSE, Nequi, Botón Bancolombia). Al confirmarse el pago se generan las entradas con un código único. |
+| **Notificaciones** | El usuario recibe avisos cuando cambia el estado de su proyecto o se confirma una compra. |
+| **Administración** | Cola de revisión, puestos de la feria EAFI, importación de eventos del portal y validación de entradas en la puerta. |
 
 ---
 
-## Arquitectura General
-
-El sistema sigue el patrón **MVC por capas** (Model-View-Controller) con regla de dependencia estricta:
-
-```
-Presentación → Modelo → Datos → Infraestructura
-   (Vistas)    (Servicios) (Repositorios)  (Prisma/Postgres, RSS)
-```
-
-**Nunca se invierte la dependencia.** Las vistas solo consultan la API propia (`/api/*`), nunca la base de datos directamente.
-
-### Diagrama de capas
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   PRESENTACIÓN                          │
-│  app/ (pages + API routes)  ·  components/ (UI)         │
-│  Regla: solo consume /api/*, nunca modelo/ ni la BD      │
-├─────────────────────────────────────────────────────────┤
-│                     MODELO                               │
-│  modelo/ (services + repositories + DTOs + states)       │
-│  Regla: negocio puro, sin dependencias de framework      │
-├─────────────────────────────────────────────────────────┤
-│                       DATOS                              │
-│  lib/db.ts (Prisma), lib/sesion.ts, lib/password.ts      │
-│  Regla: acceso a Postgres, cookies, credenciales         │
-├─────────────────────────────────────────────────────────┤
-│                  INFRAESTRUCTURA                         │
-│  lib/integraciones/ (RSS UNIMAYOR)                       │
-│  lib/errors.ts, lib/api.ts, lib/auth.ts                  │
-│  Regla: servicios externos, utilidades compartidas       │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Estructura de Carpetas
-
-```
-agenda-mayor/
-├── src/
-│   ├── app/                          # Next.js App Router (Vistas + Controllers)
-│   │   ├── layout.tsx                # Layout raíz: Navbar + Franja + Footer
-│   │   ├── page.tsx                  # Landing principal
-│   │   ├── globals.css               # Tailwind v4 + tokens UNIMAYOR
-│   │   ├── icon.jpg                  # Favicon (isologo)
-│   │   │
-│   │   ├── api/                      # Controllers (endpoints REST)
-│   │   │   ├── salud/                # GET /api/salud — health check
-│   │   │   ├── perfil/               # GET/PATCH /api/perfil
-│   │   │   ├── perfiles/[username]/  # GET /api/perfiles/:username
-│   │   │   ├── proyectos/            # GET/POST /api/proyectos
-│   │   │   ├── proyectos/[id]/       # GET/PATCH /api/proyectos/:id
-│   │   │   ├── eventos/              # GET/POST /api/eventos
-│   │   │   ├── eventos/rss/          # GET /api/eventos/rss (EN VIVO)
-│   │   │   ├── puestos/              # GET/POST /api/puestos
-│   │   │   ├── puestos/[id]/         # GET/PATCH/DELETE /api/puestos/:id
-│   │   │   ├── notificaciones/       # GET/PATCH /api/notificaciones
-│   │   │   ├── avisos/               # GET /api/avisos
-│   │   │   ├── usuarios/registro/    # POST /api/usuarios/registro (crea cuenta + sesión)
-│   │   │   ├── auth/
-│   │   │   │   ├── login/            # POST /api/auth/login
-│   │   │   │   └── logout/           # POST /api/auth/logout
-│   │   │   └── admin/
-│   │   │       ├── proyectos/        # GET/PATCH /api/admin/proyectos
-│   │   │       └── importar-eventos/ # POST /api/admin/importar-eventos
-│   │   │
-│   │   ├── proyectos/                # Pages de vitrina
-│   │   │   ├── page.tsx              # /proyectos — catálogo con filtros
-│   │   │   ├── [id]/page.tsx         # /proyectos/:id — detalle
-│   │   │   └── nuevo/page.tsx        # /proyectos/nuevo — publicar
-│   │   ├── eventos/page.tsx          # /eventos — cartelera DB + RSS
-│   │   ├── perfil/[username]/page.tsx # /perfil/:username
-│   │   ├── registro/page.tsx         # /registro
-│   │   ├── ingresar/page.tsx         # /ingresar
-│   │   └── admin/page.tsx            # /admin — panel administrativo
-│   │
-│   ├── components/                   # UI reutilizable (Vistas)
-│   │   ├── layout/                   # navbar, footer, franja
-│   │   ├── ui/                       # botones, skeleton
-│   │   ├── vitrina/                  # proyecto-card, filtros
-│   │   ├── eventos/                  # evento-card, evento-rss-card
-│   │   ├── perfil/                   # perfil-card
-│   │   ├── auth/                     # registro-form, ingreso-form
-│   │   ├── admin/                    # moderacion, puestos
-│   │   ├── notificaciones/           # campana
-│   │   └── proyectos/                # publicar-form
-│   │
-│   ├── modelo/                       # Lógica de negocio (Model)
-│   │   ├── usuarios/                 # dto, repository, service
-│   │   ├── proyectos/                # dto, repository, service, state
-│   │   ├── eventos/                  # dto, repository, service
-│   │   ├── puestos/                  # dto, repository, service
-│   │   ├── avisos/                   # dto, repository, service
-│   │   └── notificaciones/           # dto, repository, service
-│   │
-│   ├── lib/                          # Infraestructura compartida
-│   │   ├── db.ts                     # Singleton PrismaClient
-│   │   ├── sesion.ts                 # Sesión JWT en cookie (login/logout)
-│   │   ├── password.ts               # Hash/verify bcrypt
-│   │   ├── integraciones/            # unimayor-rss.ts (parser + fetcher)
-│   │   ├── api.ts                    # apiGet/Post/Patch + headersConSesion
-│   │   ├── auth.ts                   # obtenerUsuarioPorAuthId, requiereRol, puedeAvalar
-│   │   ├── errors.ts                 # ApiError + ok/err envelope
-│   │   ├── design-tokens.ts          # tokens UNIMAYOR (colores, motion, badge)
-│   │   └── facultades.ts             # lista de facultades
-│   │
-│   └── proxy.ts                      # Proxy middleware (Next 16)
-│
-├── tests/                            # Pruebas unitarias (Vitest)
-│   ├── api.test.ts                   # Tests de envelope API
-│   ├── arquitectura.test.ts          # Test de arquitectura (layer violations)
-│   ├── proyecto.dto.test.ts          # Tests de validación Zod
-│   ├── proyecto.state.test.ts        # Tests de State Machine
-│   └── unimayor-rss.test.ts          # Tests del parser RSS
-│
-├── prisma/
-│   ├── schema.prisma                 # Modelo de datos (7 tablas + contrasena_hash)
-│   └── seed.mjs                       # Roles + usuarios demo
-│
-├── public/brand/                     # Activos de marca
-│   ├── logoPrincipal.jpg             # Isologo (navbar, hero, favicon)
-│   ├── logo_blanco.png               # Logo blanco (footer)
-│   ├── escudo-unimayor.png           # Escudo (reserva)
-│   └── favicon-unimayor.png          # Favicon alternativo
-│
-├── references/                       # Documentación académica
-│   ├── ISO-25010.md                  # Modelo de calidad del software
-│   ├── ISO-29119.md                  # Estándares de pruebas
-│   ├── ISO-42010.md                  # Ingeniería de requisitos
-│   ├── BPMN-2.0.md                   # Modelado de procesos
-│   ├── ISTQB.md                      # Certificación de testing
-│   ├── Patrones-Diseno.md            # Catálogo de patrones
-│   └── 00-INDICE.md                  # Índice general
-│
-├── AGENTS.md                         # Guía de instrucciones para el asistente
-├── DESIGN.md                         # Sistema de diseño y documentación técnica
-├── DEPLOY.md                         # Guía de despliegue (Vercel, Render, Docker)
-├── vercel.json                       # Configuración Vercel
-├── Dockerfile                        # Contenedor de producción
-├── render.yaml                       # Configuración Render Blueprint
-├── .env.example                      # Template de variables de entorno
-└── package.json
-```
-
----
-
-## Equipo Docente y Estudiantil
+## 2. Equipo
 
 | Rol | Nombre | Código |
 |---|---|---|
 | **Docente** | Mag. María Isabel Bastidas | — |
-| **Estudiante 1** | Santiago Montaño | 90225040 |
-| **Estudiante 2** | Luisa Maya | 90225029 |
-| **Estudiante 3** | Camilo Sotelo | 90225030 |
-
-> Cada estudiante desarrolló 5 Historias de Usuario = **15 HUs totales**.
+| **Estudiante** | Santiago Montaño | 90225040 |
+| **Estudiante** | Luisa Maya | 90225029 |
+| **Estudiante** | Camilo Sotelo | 90225030 |
 
 ---
 
-## Stack Tecnológico
+## 3. Cómo probar la aplicación
 
-### Frontend
-| Tecnología | Versión | Uso |
-|---|---|---|
-| **Next.js** | 16.3.5 | Framework full-stack (App Router, Server Components, API Routes) |
-| **React** | 19.2.8 | UI library con Server Components y Suspense |
-| **TypeScript** | 5.x | Tipado estático estricto |
-| **Tailwind CSS** | 4.x | Utility-first CSS con theme tokens UNIMAYOR |
-| **Nunito Sans** | — | Tipografía institucional (via next/font) |
+Entrar a **https://agenda-mayor.vercel.app** → **Ingresar**.
 
-### Backend
-| Tecnología | Versión | Uso |
-|---|---|---|
-| **PostgreSQL (Neon)** | — | Base de datos relacional gestionada |
-| **Prisma** | 6.x | ORM: esquema, cliente tipado y migraciones |
-| **bcryptjs** | 3.x | Hash de contraseñas |
-| **jose** | 6.x | Firma/verificación del JWT de sesión |
-| **Zod** | 4.x | Validación de DTOs en tiempo de ejecución |
-| **fast-xml-parser** | 5.x | Parser del feed RSS de UNIMAYOR |
+Todas las cuentas de prueba usan la misma contraseña: **`Unimayor2026`**
 
-### Testing
-| Tecnología | Versión | Uso |
-|---|---|---|
-| **Vitest** | 3.2.7 | Pruebas unitarias con assertions nativas |
+| Rol | Correo | Usuario | Facultad | Qué puede revisar |
+|---|---|---|---|---|
+| **ADMIN** | `admin@unimayor.edu.co` | admin.mayor | — | Todo: moderación de todas las facultades, puestos EAFI, importar eventos, validar entradas, crear eventos OFICIAL |
+| **DOCENTE** | `mibastidas@unimayor.edu.co` | prof.bastidas | Ingeniería | Aprobar/rechazar proyectos de Ingeniería, crear eventos EAFI, validar entradas |
+| **DOCENTE** | `docente@unimayor.edu.co` | profe.ingenieria | Ingeniería | Igual al anterior |
+| **DOCENTE** | `jiruiz@unimayor.edu.co` | prof.ruiz | Ingeniería | Igual al anterior |
+| **DOCENTE** | `cpordonez@unimayor.edu.co` | prof.ordonez | Educación | Solo revisa proyectos de Educación |
+| **ESTUDIANTE** | `smontano@unimayor.edu.co` | santiago.m | Ingeniería | Publicar proyectos, comprar entradas, notificaciones |
+| **ESTUDIANTE** | `lmmaya@unimayor.edu.co` | luisa.m | Arte y Diseño | Igual al anterior |
+| **ESTUDIANTE** | `pamunoz@unimayor.edu.co` | paula.munoz | Ingeniería | Igual al anterior |
+| **ESTUDIANTE** | `mffernandez@unimayor.edu.co` | mafe.fernandez | Ingeniería | Igual al anterior |
 
-### Despliegue
-| Plataforma | Configuración |
-|---|---|
-| **Vercel** (recomendada) | `vercel.json` — zero-config para Next.js |
-| **Render** | `render.yaml` + `Dockerfile` |
-| **Docker** | `Dockerfile` multi-stage con standalone output |
+También se puede crear una cuenta nueva en **Crear cuenta** con cualquier correo que termine en `@unimayor.edu.co` (queda con rol ESTUDIANTE).
+
+### Pagos de prueba
+
+Bold está configurado en **modo de pruebas**: no se cobra dinero real. En la página de pago de Bold aparece el aviso *"Modo de pruebas"* y el enlace **"Ver datos de prueba"**, que muestra las tarjetas y datos ficticios para aprobar o rechazar un pago.
+
+Eventos que venden entradas: **"Concierto Rock en el Claustro (prueba pagos)"** y **"Taller de IA aplicada: crea tu primer agente con Python"** (en la cartelera llevan la etiqueta *Entradas*).
 
 ---
 
-## Patrones de Diseño Implementados
+## 4. Guía de revisión paso a paso
 
-### Patrones Estructurales (GoF)
+**A. Como visitante (sin iniciar sesión)**
+1. Inicio: proyectos destacados, próximos eventos y avisos.
+2. **Proyectos**: filtrar por facultad, tipo o texto → abrir un proyecto → ver ficha y puesto EAFI.
+3. **Eventos**: cartelera propia + publicaciones del portal UNIMAYOR.
+
+**B. Como estudiante** (`smontano@unimayor.edu.co`)
+1. **Mi panel** → *+ Publicar proyecto* → llenar el formulario → queda **En revisión** (llega una notificación).
+2. Abrir **Eventos** → *Concierto Rock en el Claustro* → elegir cantidad → **Pagar con Bold**.
+3. En Bold usar los datos de prueba → al volver, la página de resultado muestra **Pago aprobado**.
+4. **Mis entradas**: aparece la entrada con su código `ENT-…`.
+5. **Notificaciones**: aviso de la compra confirmada.
+6. Su perfil (`@santiago.m`) → *Editar mi perfil* (HU-03).
+
+**C. Como docente** (`mibastidas@unimayor.edu.co`)
+1. **Mi panel** → *Cola de revisión*: solo aparecen proyectos de Ingeniería.
+2. **Publicar** un proyecto o **Rechazar** indicando el motivo → el estudiante recibe la notificación.
+3. *Validar entrada*: escribir el código `ENT-…` de una entrada comprada → la primera vez es válida; la segunda dice *"Esta entrada ya fue usada"*.
+4. **Eventos** → *+ Crear evento*: puede crear EAFI (de su facultad) y COMUNIDAD, no OFICIAL.
+
+**D. Como administrador** (`admin@unimayor.edu.co`)
+1. **Mi panel**: cola de revisión de **todas** las facultades.
+2. *Puestos feria EAFI*: crear un puesto, asignarlo a un proyecto, liberarlo o eliminarlo.
+3. *Importar eventos del portal*: trae los eventos del RSS de unimayor.edu.co (no duplica títulos).
+4. Crear un evento OFICIAL con venta de entradas.
+
+---
+
+## 5. Tecnologías
+
+| Capa | Tecnología | Para qué |
+|---|---|---|
+| Presentación | Next.js 16 (App Router), React 19 | Páginas y controladores de la API |
+| Presentación | CSS propio (`src/app/globals.css`) | Estilos con los colores institucionales, sin frameworks |
+| Modelo | TypeScript 5, Zod 4 | Lógica de negocio y validación de datos (DTO) |
+| Datos | PostgreSQL en Neon, Prisma 6 | Base de datos y acceso a ella |
+| Infraestructura | jose (JWT), bcryptjs | Sesión y cifrado de contraseñas |
+| Infraestructura | API de links de pago de **Bold** | Pasarela de pagos |
+| Infraestructura | fast-xml-parser | Leer el RSS del portal UNIMAYOR |
+| Pruebas | Vitest 3 | Pruebas automáticas |
+| Despliegue | Vercel | Hosting |
+
+---
+
+## 6. Arquitectura: MVC por capas
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ PRESENTACIÓN (Vista + Controlador)                                     │
+│   src/components/**        Vistas: tarjetas, formularios, tablas       │
+│   src/app/**/page.tsx      Páginas: piden datos al modelo y arman      │
+│                            la vista                                    │
+│   src/app/api/**/route.ts  Controladores REST:                         │
+│                            sesión → rol → DTO → service → respuesta    │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ MODELO (src/modelo/<módulo>/)                                          │
+│   *.dto.ts      qué datos entran (validación Zod)                      │
+│   *.service.ts  reglas de negocio                                      │
+│   *.state.ts    máquina de estados (proyectos)                         │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ DATOS                                                                  │
+│   *.repository.ts  únicas clases que consultan la base de datos        │
+│   src/lib/db.ts    conexión Prisma (Singleton)                         │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ INFRAESTRUCTURA (src/lib/)                                             │
+│   sesion.ts · password.ts · auth.ts · errors.ts                        │
+│   integraciones/bold.ts · integraciones/unimayor-rss.ts                │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+**Reglas de capas** (verificadas por `tests/arquitectura.test.ts`):
+- `components/` nunca importa `@/modelo`: la vista no conoce el modelo.
+- Solo los `*.repository.ts` importan la conexión a la base de datos (`@/lib/db`).
+
+**Ejemplo de una petición completa** — publicar un proyecto:
+
+```
+publicar-form.tsx (Vista)
+  └─ POST /api/proyectos → route.ts (Controlador)
+       ├─ usuarioActual()                    lib/auth.ts      (¿quién es?)
+       ├─ ProyectoCreateSchema.parse(body)   proyecto.dto.ts  (¿datos válidos?)
+       └─ proyecto.service.crear()           (regla: EAFI exige evento origen)
+            ├─ proyecto.repository.crear()   (INSERT en la BD, estado EN_REVISION)
+            └─ notificacion.repository.crear()  (aviso al autor)
+  └─ ok(proyecto, 201)  →  { data, error: null }   lib/errors.ts (Factory)
+```
+
+### Estructura de carpetas
+
+```
+agenda-mayor/
+├── prisma/
+│   ├── schema.prisma            Modelo de datos
+│   └── seed.mjs                 Datos de prueba (roles y usuarios)
+├── public/brand/                Logos institucionales
+├── src/
+│   ├── app/                     PRESENTACIÓN
+│   │   ├── page.tsx             Inicio
+│   │   ├── layout.tsx           Estructura común (menú y pie)
+│   │   ├── globals.css          Hoja de estilos única
+│   │   ├── proyectos/           Vitrina, [id] detalle, nuevo
+│   │   ├── eventos/             Cartelera, [id] detalle + compra, nuevo
+│   │   ├── checkout/resultado/  Regreso desde Bold
+│   │   ├── mis-entradas/        Entradas compradas
+│   │   ├── panel/               Panel según el rol
+│   │   ├── perfil/[username]/   Perfil público
+│   │   ├── notificaciones/
+│   │   ├── ingresar/ · registro/
+│   │   └── api/                 Controladores REST
+│   ├── components/              Vistas reutilizables
+│   │   ├── auth/ eventos/ layout/ notificaciones/
+│   │   ├── panel/ perfil/ proyectos/ ui/
+│   ├── modelo/                  MODELO + DATOS (un módulo por carpeta)
+│   │   ├── usuarios/            dto · service · repository
+│   │   ├── proyectos/           dto · service · repository · state
+│   │   ├── eventos/             dto · service · repository
+│   │   ├── puestos/             dto · service · repository
+│   │   ├── taquilla/            dto · service · repository
+│   │   ├── notificaciones/      repository
+│   │   └── avisos/              repository
+│   └── lib/                     INFRAESTRUCTURA
+│       ├── db.ts  sesion.ts  password.ts  auth.ts  errors.ts
+│       ├── api.ts  formato.ts  facultades.ts
+│       └── integraciones/       bold.ts · unimayor-rss.ts
+└── tests/                       Pruebas automáticas
+```
+
+---
+
+## 7. Patrones de diseño implementados
+
+### Patrones estructurales (GoF)
 
 | Patrón | Ubicación | Descripción |
 |---|---|---|
-| **Adapter** | `lib/sesion.ts` + `lib/password.ts` | Aíslan la estrategia de sesión (JWT/cookie) y de hash del resto del código. Permiten cambiar de mecanismo sin tocar los servicios. |
-| **DTO** | `modelo/*/dto.ts` | Transfiere datos entre capas sin exponer entidades de BD. Validación Zod en cada DTO. |
-| **Repository** | `modelo/*/repository.ts` | Abstrae el acceso a datos. Los servicios nunca llaman a Prisma directamente — solo el repository. |
+| **Adapter** | `lib/sesion.ts` + `lib/password.ts` + `lib/integraciones/bold.ts` | Aíslan la estrategia de sesión (JWT en cookie), el cifrado de contraseñas (bcrypt) y la pasarela de pagos (Bold) del resto del código. Los services llaman a funciones propias (`crearSesion`, `hashPassword`, `crearLinkDePago`) sin conocer la librería o API que hay detrás; cambiar el mecanismo no obliga a tocar los services. |
+| **DTO** | `modelo/*/*.dto.ts` | Definen qué datos entran a cada operación y los validan con Zod antes de llegar al service (`ProyectoCreateSchema`, `EventoCreateSchema`, `CompraSchema`, `RegistroSchema`…). Las respuestas no exponen campos sensibles: `contrasena_hash` nunca sale de la API. |
+| **Repository** | `modelo/*/*.repository.ts` | Abstraen el acceso a datos. Los services nunca llaman a Prisma directamente, solo al repository (verificado por test). |
 
-### Patrones Creacionales (GoF)
-
-| Patrón | Ubicación | Descripción |
-|---|---|---|
-| **Singleton** | `lib/db.ts` | Instancia única de `PrismaClient` (evita múltiples conexiones con el hot-reload). |
-| **Factory** | `lib/errors.ts` | Funciones `ok()`, `err()`, `badRequest()`, `forbidden()` que crean respuestas estandarizadas. |
-
-### Patrones de Comportamiento (GoF)
+### Patrones creacionales (GoF)
 
 | Patrón | Ubicación | Descripción |
 |---|---|---|
-| **State** | `modelo/proyectos/proyecto.state.ts` | Máquina de estados: BORRADOR → EN_REVISION → PUBLICADO/RECHAZADO. Cada estado define transiciones válidas. |
-| **Strategy** | `modelo/eventos/evento.service.ts` | Reglas de creación según rol (ADMIN → OFICIAL, DOCENTE → EAFI, ESTUDIANTE → COMUNIDAD). |
+| **Singleton** | `lib/db.ts` | Una sola instancia de `PrismaClient` guardada en `globalThis`, para no abrir conexiones nuevas con cada recarga en desarrollo. |
+| **Factory** | `lib/errors.ts` | Funciones `ok()`, `err()`, `badRequest()`, `unauthorized()`, `forbidden()`, `notFound()`, `conflict()` que fabrican respuestas y errores con el mismo formato `{ data, error }` en toda la API. |
 
-### Patrón Arquitectónico
+### Patrones de comportamiento (GoF)
+
+| Patrón | Ubicación | Descripción |
+|---|---|---|
+| **State** | `modelo/proyectos/proyecto.state.ts` | Máquina de estados del proyecto. Cada estado define a qué estados puede pasar y qué rol puede hacerlo: `BORRADOR → EN_REVISION`, `EN_REVISION → PUBLICADO / RECHAZADO` (docente/admin), `RECHAZADO → EN_REVISION` (estudiante), y paso a `ELIMINADO`. Una transición no permitida responde 403. |
+| **Strategy** | `modelo/eventos/evento.service.ts` | El objeto `REGLAS_POR_TIPO` guarda una regla de creación por tipo de evento: ADMIN → OFICIAL, DOCENTE → EAFI de su facultad, cualquiera → COMUNIDAD. El service elige la regla según el tipo y la ejecuta, sin cadenas de `if`. Agregar un tipo nuevo = agregar una regla. |
+
+```ts
+// evento.service.ts (resumen)
+const REGLAS_POR_TIPO: Record<TipoEvento, ReglaDeCreacion> = {
+  OFICIAL:   (datos, usuario) => { if (usuario.nombre_rol !== "ADMIN") throw forbidden(...) },
+  EAFI:      (datos, usuario) => { /* docente de su facultad, exige edición */ },
+  COMUNIDAD: () => { /* cualquier usuario */ },
+};
+
+const regla = REGLAS_POR_TIPO[datos.tipo];
+regla(datos, usuario);
+```
+
+### Patrón arquitectónico
 
 | Patrón | Ubicación | Descripción |
 |---|---|---|
@@ -265,172 +280,230 @@ agenda-mayor/
 
 ---
 
-## Modelo de Datos
-
-7 tablas en PostgreSQL (Neon), definidas en `prisma/schema.prisma`:
+## 8. Flujo de compra con Bold
 
 ```
-ROL (1) ──── (N) USUARIO (1) ──── (N) PROYECTO
-                       │                    │
-                       │                    ├── (N) PUESTO
-                       │                    │
-                       └── (N) EVENTO ──────┘
-                              │
-                              └── (N) PUESTO
-
-USUARIO (1) ──── (N) AVISO
-USUARIO (1) ──── (N) NOTIFICACION
+ Usuario            Agenda Mayor                                   Bold
+    │  elige entradas   │                                             │
+    │──────────────────▶│ POST /api/checkout                          │
+    │                   │  1. valida el carrito (CompraSchema)        │
+    │                   │  2. lee precios y cupos de la BD            │
+    │                   │  3. crea Orden PENDIENTE                    │
+    │                   │  4. crearLinkDePago() ─────────────────────▶│
+    │◀──────────────────│◀──────────────── url del link de pago ──────│
+    │  paga en checkout.bold.co ─────────────────────────────────────▶│
+    │                   │◀──── webhook /api/pagos/bold/webhook ───────│
+    │◀── vuelve a /checkout/resultado?orden=ORD-…                     │
+    │                   │  5. conciliar(): consultarPago() ──────────▶│
+    │                   │     PAGADA  → genera entradas + notificación│
+    │                   │     RECHAZADA / EXPIRADA → cierra la orden  │
+    │  Mis entradas     │                                             │
 ```
 
-| Tabla | Registros | Descripción |
-|---|---|---|
-| `rol` | 3 | ESTUDIANTE, DOCENTE, ADMIN |
-| `usuario` | — | Perfil completo con `contrasena_hash` (bcrypt), username, facultad, semillero |
-| `proyecto` | — | Título, descripción, fotos (JSONB), tipo, estado, aval docente |
-| `evento` | — | Tipo (OFICIAL/EAFI/COMUNIDAD), fechas, lugar, imagen |
-| `puesto` | — | Ubicación física (edificio, piso, salón) para mesas EAFI |
-| `aviso` | — | Avisos institucionales |
-| `notificacion` | — | Notificaciones por usuario (campana) |
+- **El precio nunca viene del navegador**: el service lo lee de la base de datos.
+- **Estados de la orden**: `PENDIENTE → PAGADA | RECHAZADA | EXPIRADA` (30 minutos para pagar).
+- **Doble aviso**: el webhook y la página de resultado pueden llegar a la vez; la orden solo pasa a PAGADA una vez (actualización condicionada a `estado = PENDIENTE` dentro de una transacción).
+- **Webhook seguro**: se verifica la firma `x-bold-signature` y se ignoran avisos repetidos (`pago_evento`).
+- **Eventos gratuitos**: si el total es $0, la orden se confirma sin pasar por Bold.
+- **Validación en la puerta**: la entrada pasa de `VALIDA` a `USADA` una sola vez.
 
 ---
 
-## Estándares Académicos
+## 9. Roles y permisos
 
-| Estándar | Aplicación |
+| Acción | Visitante | Estudiante | Docente | Admin |
+|---|:---:|:---:|:---:|:---:|
+| Ver vitrina, eventos y perfiles | ✓ | ✓ | ✓ | ✓ |
+| Registrarse / iniciar sesión | ✓ | — | — | — |
+| Publicar y editar proyecto propio | | ✓ | ✓ | ✓ |
+| Reenviar proyecto rechazado | | ✓ (autor) | | |
+| Aprobar / rechazar proyectos | | | ✓ (su facultad) | ✓ (todas) |
+| Destacar proyectos | | | ✓ | ✓ |
+| Crear evento COMUNIDAD | | ✓ | ✓ | ✓ |
+| Crear evento EAFI | | | ✓ (su facultad) | ✓ |
+| Crear evento OFICIAL | | | | ✓ |
+| Comprar entradas | | ✓ | ✓ | ✓ |
+| Validar entradas en la puerta | | | ✓ | ✓ |
+| Gestionar puestos EAFI | | | | ✓ |
+| Importar eventos del portal | | | | ✓ |
+
+---
+
+## 10. Modelo de datos
+
+Definido en `prisma/schema.prisma` (PostgreSQL en Neon).
+
+```
+ROL 1───N USUARIO 1───N PROYECTO N───0..1 EVENTO (evento origen EAFI)
+              │            │
+              │            └──0..1 PUESTO N───1 EVENTO
+              ├───N EVENTO (autor)
+              ├───N NOTIFICACION
+              └───N ORDEN 1───N ORDEN_ITEM N───1 TIPO_ENTRADA N───1 EVENTO
+                       │
+                       ├───N ENTRADA
+                       └───N PAGO_EVENTO
+AVISO (sin relaciones)
+```
+
+| Tabla | Descripción |
 |---|---|
-| **ISO/IEC 25010** | Requerimientos no funcionales: portabilidad, fiabilidad, eficiencia, usabilidad, seguridad, compatibilidad |
-| **ISO/IEC/IEEE 29119** | Criterios de aceptación evaluables, trazabilidad HU → BPMN → código |
-| **ISO/IEC/IEEE 42010** | Documento SAD: contexto, vistas, modelo de datos, despliegue |
-| **ISTQB** | Casos de prueba derivados de criterios de aceptación, pruebas automatizadas |
+| `rol` | ESTUDIANTE, DOCENTE, ADMIN |
+| `usuario` | Perfil con `contrasena_hash` (bcrypt), facultad, programa, semillero, estado activo |
+| `proyecto` | Título, descripción, fotos (JSON), tipo, estado, motivo de rechazo, destacado |
+| `evento` | Tipo (OFICIAL/EAFI/COMUNIDAD), fechas, lugar o enlace virtual, si vende entradas |
+| `puesto` | Mesa física de la feria EAFI (edificio, piso, salón) asignada a un proyecto |
+| `aviso` | Avisos institucionales de la portada |
+| `notificacion` | Notificaciones de cada usuario |
+| `tipo_entrada` | Entradas que vende un evento (nombre, precio en centavos, cantidad total y vendida) |
+| `orden` | Pedido del comprador: código, total, estado, referencia del link de Bold |
+| `orden_item` | Líneas del pedido (tipo de entrada × cantidad) |
+| `entrada` | Entrada individual con código único y estado VALIDA/USADA |
+| `pago_evento` | Avisos recibidos de Bold (evita procesar dos veces el mismo) |
+
+> **Nota técnica:** la base de datos en Neon es compartida con la versión extendida del proyecto (rama `app-completa`), que tiene columnas adicionales. Este esquema es un subconjunto compatible: **no ejecutar `prisma db push` ni `prisma migrate`** desde esta versión, porque eliminaría esas columnas.
 
 ---
 
-## Historias de Usuario
+## 11. API REST
 
-15 HUs documentadas en LaTeX (`entregable/latex/Historias_Usuario_UNIMAYOR.tex`):
+Todas las respuestas tienen la forma `{ "data": …, "error": null }` o `{ "data": null, "error": { "message": "…" } }`.
 
-| # | HU | Estudiante |
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| POST | `/api/usuarios/registro` | Crear cuenta | Público |
+| POST | `/api/auth/login` | Iniciar sesión | Público |
+| POST | `/api/auth/logout` | Cerrar sesión | Con sesión |
+| GET / PATCH | `/api/perfil` | Ver / completar mi perfil | Con sesión |
+| GET | `/api/perfiles/[username]` | Perfil público | Público |
+| GET / POST | `/api/proyectos` | Listar publicados / publicar | Público / con sesión |
+| GET | `/api/proyectos/mios` | Mis proyectos | Con sesión |
+| GET / PATCH | `/api/proyectos/[id]` | Detalle / editar o cambiar estado | Según rol |
+| GET | `/api/admin/proyectos` | Cola de revisión | Docente, Admin |
+| GET / POST | `/api/eventos` | Cartelera / crear evento | Público / con sesión |
+| GET | `/api/eventos/rss` | Eventos del portal UNIMAYOR | Público |
+| POST | `/api/admin/importar-eventos` | Importar eventos del RSS | Admin |
+| GET / POST | `/api/puestos` | Listar / crear puestos | Público / Admin |
+| GET / PATCH / DELETE | `/api/puestos/[id]` | Detalle / asignar o liberar / eliminar | Admin |
+| POST | `/api/checkout` | Crear orden y link de pago Bold | Con sesión |
+| GET | `/api/ordenes/[codigo]` | Estado de mi orden | Comprador |
+| POST | `/api/pagos/bold/webhook` | Aviso de pago de Bold | Bold (firma) |
+| GET | `/api/mis-entradas` | Mis entradas | Con sesión |
+| POST | `/api/entradas/validar` | Validar entrada en la puerta | Docente, Admin |
+| GET / PATCH | `/api/notificaciones` | Listar / marcar leídas | Con sesión |
+| GET | `/api/avisos` | Avisos activos | Público |
+| GET | `/api/salud` | Estado del servicio | Público |
+
+---
+
+## 12. Historias de usuario y trazabilidad
+
+| HU | Historia | Dónde se implementa |
 |---|---|---|
-| HU-01 | Registrar cuenta con correo institucional | Santiago Montaño |
-| HU-02 | Iniciar sesión (email/contraseña propia) | Santiago Montaño |
-| HU-03 | Cerrar sesión invalidando la cookie | Santiago Montaño |
-| HU-04 | Ver vitrina de proyectos con filtros | Santiago Montaño |
-| HU-05 | Ver detalle de proyecto con puesto | Santiago Montaño |
-| HU-06 | Publicar proyecto en borrador | Luisa Maya |
-| HU-07 | Editar proyecto en borrador | Luisa Maya |
-| HU-08 | Eliminar proyecto propio | Luisa Maya |
-| HU-09 | Ver cartelera de eventos | Luisa Maya |
-| HU-10 | Crear evento COMUNIDAD | Luisa Maya |
-| HU-11 | Crear evento EAFI (docente) | Camilo Sotelo |
-| HU-12 | Avalar proyecto de facultad | Camilo Sotelo |
-| HU-13 | Importar eventos del portal UNIMAYOR | Camilo Sotelo |
-| HU-14 | Ver perfil público de usuario | Camilo Sotelo |
-| HU-15 | Recibir notificaciones de estado | Camilo Sotelo |
+| HU-01 | Registrarse con correo institucional | `registro-form.tsx` → `api/usuarios/registro` → `usuario.service.registrar` (`RegistroSchema` exige `@unimayor.edu.co`) |
+| HU-02 | Iniciar sesión | `ingreso-form.tsx` → `api/auth/login` → `usuario.service.iniciarSesion` + `lib/sesion.ts` |
+| HU-03 | Completar perfil | `editar-perfil.tsx` → `api/perfil` (PATCH) → `usuario.service.actualizarMiPerfil` |
+| HU-04 | Ver perfil público | `perfil/[username]/page.tsx` → `usuario.service.obtenerPerfilPublico` |
+| HU-05 | Cerrar sesión | `boton-cerrar-sesion.tsx` → `api/auth/logout` → `lib/sesion.cerrarSesion` |
+| HU-06 | Publicar proyecto | `publicar-form.tsx` → `api/proyectos` (POST) → `proyecto.service.crear` |
+| HU-07 | Filtrar proyectos | `proyectos/page.tsx` (formulario GET) → `proyecto.repository.listarPublicados` |
+| HU-08 | Ver detalle de proyecto | `proyectos/[id]/page.tsx` + `puesto.service.obtenerPorProyecto` |
+| HU-09 | Editar / reenviar proyecto rechazado | `acciones-autor.tsx` → `api/proyectos/[id]` → `proyecto.service.editar` / `cambiarEstado` |
+| HU-10 | Recibir notificaciones | `notificacion.repository` (lo usan los services de proyectos y taquilla) → `notificaciones/page.tsx` |
+| HU-11 | Crear evento según rol | `evento-form.tsx` → `api/eventos` → `evento.service.crear` (**Strategy**) |
+| HU-12 | Moderar: rechazar con motivo | `moderacion.tsx` → `api/proyectos/[id]` → `proyecto.state.ts` (**State**) |
+| HU-13 | Aprobar proyecto | `moderacion.tsx` → `api/proyectos/[id]` → `puedeAvalar` + `proyecto.state.ts` |
+| HU-14 | Avisos institucionales | `aviso.repository.listarActivos` → portada (`app/page.tsx`) |
+| HU-15 | Desactivar usuario | `lib/auth.ts`: un usuario con `estado = false` no puede usar la aplicación |
+
+**Requisitos del Corte 2 (comercio)**
+
+| Requisito | Dónde se implementa |
+|---|---|
+| Usuarios y seguridad (RBAC) | `lib/auth.ts` (`requiereRol`, `puedeAvalar`), roles en tabla `rol` |
+| Catálogo de productos/servicios | Eventos con tipos de entrada: `evento.repository.buscarDetalle` |
+| Carrito y pedido (checkout) | `compra-entradas.tsx` → `taquilla.service.comprar` → tablas `orden` y `orden_item` |
+| Pasarela de pagos | `lib/integraciones/bold.ts` (Adapter) + `api/pagos/bold/webhook` |
+| Confirmación y notificaciones | `taquilla.service.conciliar` → entradas + `notificacion.repository.crear` |
 
 ---
 
-## Instalación y Desarrollo
+## 13. Pruebas automáticas
 
 ```bash
-# 1. Clonar
-git clone https://github.com/TU_USUARIO/agenda-mayor.git
-cd agenda-mayor
+npx vitest run
+```
 
-# 2. Instalar dependencias
+| Archivo | Qué prueba |
+|---|---|
+| `tests/arquitectura.test.ts` | Reglas de capas: las vistas no importan el modelo y solo los repositories usan la BD |
+| `tests/proyecto.state.test.ts` | Transiciones válidas e inválidas de la máquina de estados (State) |
+| `tests/evento.strategy.test.ts` | Reglas por tipo de evento según el rol (Strategy) |
+| `tests/proyecto.dto.test.ts` | Validación del DTO de proyectos |
+| `tests/api.test.ts` | Helper de la API del navegador (respuesta `{ data, error }`) |
+| `tests/unimayor-rss.test.ts` | Lectura del RSS del portal UNIMAYOR |
+
+---
+
+## 14. Decisiones de diseño
+
+| Decisión | Motivo |
+|---|---|
+| **CSS propio** en un solo archivo, en vez de un framework | Código fácil de leer y explicar; las clases (`.tarjeta`, `.btn`, `.etiqueta`) describen lo que son. Colores tomados del portal institucional. |
+| **Bold** como única pasarela | Pasarela colombiana con modo de pruebas, que acepta tarjeta, PSE, Nequi y Bancolombia en pesos colombianos. |
+| **Páginas que leen el modelo directamente** y componentes que usan la API | La página actúa como controlador (pide datos al service); los formularios del navegador envían datos a `/api/*`. |
+| **Sesión propia con JWT** en cookie `httpOnly` | No depende de servicios externos y no es accesible desde JavaScript del navegador. |
+| **Precios en centavos** (enteros) | Evita errores de redondeo con decimales. |
+
+---
+
+## 15. Instalación local
+
+Requisitos: Node.js 20+ y una base PostgreSQL (Neon).
+
+```bash
+# 1. Instalar dependencias
 npm install
 
-# 3. Configurar variables de entorno
+# 2. Variables de entorno
 cp .env.example .env
-# Editar .env con la cadena de conexión de Neon (DATABASE_URL + DIRECT_URL)
-# y definir AUTH_SECRET.
+# Completar DATABASE_URL, DIRECT_URL, AUTH_SECRET y las llaves de Bold
 
-# 4. Crear el esquema y sembrar roles/usuarios
-npx prisma db push
-npx prisma db seed     # usuarios demo, contraseña: Unimayor2026
+# 3. Generar el cliente de Prisma
+npm run db:generate
 
-# 5. Desarrollo
+# 4. Ejecutar en desarrollo → http://localhost:3000
 npm run dev
-# Abrir http://localhost:3000
 ```
 
-### Comandos disponibles
-
-| Comando | Descripción |
+| Comando | Qué hace |
 |---|---|
-| `npm run dev` | Servidor de desarrollo (localhost:3000) |
-| `npm run build` | Build de producción (`prisma generate` + standalone) |
-| `npm start` | Servidor de producción |
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | `prisma generate` + compilación de producción |
+| `npx vitest run` | Pruebas automáticas |
 | `npm run lint` | ESLint |
-| `npm run db:push` | Crea/actualiza el esquema en Postgres |
-| `npm run db:migrate` | Migraciones versionadas (`prisma migrate dev`) |
-| `npm run db:seed` | Roles + usuarios demo |
-| `npm run db:studio` | Prisma Studio |
-| `npx vitest run` | Ejecutar pruebas |
-| `npx tsc --noEmit` | Verificación de tipos |
+| `npm run db:seed` | Datos de prueba (roles y usuarios con contraseña `Unimayor2026`) |
+
+### Variables de entorno
+
+| Variable | Uso |
+|---|---|
+| `DATABASE_URL` / `DIRECT_URL` | Conexión a PostgreSQL en Neon |
+| `AUTH_SECRET` | Firma de la cookie de sesión |
+| `BOLD_API_KEY` / `BOLD_SECRET_KEY` | Llaves de Bold (panel de Bold → Integraciones) |
+| `BOLD_ENTORNO` | `pruebas` o `produccion` |
+| `NEXT_PUBLIC_SITE_URL` | URL pública (a dónde vuelve el comprador desde Bold) |
 
 ---
 
-## Variables de Entorno
+## 16. Despliegue
 
-| Variable | Descripción | Obligatoria |
-|---|---|---|
-| `DATABASE_URL` | Cadena pooled de Postgres (Neon) | Sí |
-| `DIRECT_URL` | Cadena directa de Postgres (migraciones) | Sí |
-| `AUTH_SECRET` | Clave para firmar la cookie de sesión | Sí |
-| `STRIPE_SECRET_KEY` | Clave secreta de Stripe (`sk_test_…` en desarrollo) para la taquilla | Para cobrar en línea |
-| `STRIPE_WEBHOOK_SECRET` | Secreto del endpoint `/api/stripe/webhook` (`whsec_…`) | Para confirmar pagos |
-| `STRIPE_CURRENCY` | Moneda de la taquilla (`cop` por defecto) | No |
-| `NEXT_PUBLIC_SITE_URL` | URL pública usada en `success_url`/`cancel_url` de Stripe | Recomendada en producción |
-| `EVENTOS_REQUIEREN_APROBACION` | `true` envía eventos pagos de estudiantes a revisión | No |
-
-### Taquilla con Stripe en local
-
-```bash
-# Terminal 1: app
-npm run dev
-
-# Terminal 2: reenvía los webhooks a la app
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-# Copia el whsec_… que imprime el CLI en STRIPE_WEBHOOK_SECRET y reinicia.
-```
-
-Si no hay claves de Stripe, los eventos gratuitos y sus reservas con QR siguen funcionando; el checkout pago responde 503 con un mensaje claro.
-
----
-
-## Despliegue
-
-Ver [DEPLOY.md](DEPLOY.md) para guía completa.
-
-**Vercel (recomendada):**
-```bash
-npx vercel --prod
-```
-
-**Docker:**
-```bash
-docker build -t agenda-mayor .
-docker run -p 3000:3000 \
-  -e DATABASE_URL="postgresql://...-pooler.../agendamayor?sslmode=require" \
-  -e DIRECT_URL="postgresql://.../agendamayor?sslmode=require" \
-  -e AUTH_SECRET="..." \
-  agenda-mayor
-```
+- **Producción:** https://agenda-mayor.vercel.app — Vercel despliega automáticamente cada cambio en la rama `main` (`npm run build`).
+- **Base de datos:** PostgreSQL en Neon.
+- **Webhook de Bold:** se configura en el panel de Bold hacia `https://agenda-mayor.vercel.app/api/pagos/bold/webhook`. Si el webhook no llega, la página de resultado igual consulta el estado del pago directamente a Bold.
 
 ---
 
 ## Licencia
 
 Proyecto académico — Institución Universitaria Colegio Mayor del Cauca.
-No apto para producción comercial sin autorización.
-
----
-
-<div align="center">
-
-**Institución Universitaria Colegio Mayor del Cauca**
-SNIES 3104 · NIT 891.500.759-1
-Claustro Encarnación Cra. 5 # 5 - 40, Popayán
-Conmutador: (602) 8274178 · Línea gratuita: 01-8000-931018
-
-</div>

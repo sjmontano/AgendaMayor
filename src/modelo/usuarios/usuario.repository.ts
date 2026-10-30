@@ -117,3 +117,11 @@ export async function existeCorreo(correo: string): Promise<boolean> {
   const total = await prisma.usuario.count({ where: { correo } });
   return total > 0;
 }
+
+/** Usuario con el nombre de su rol (lo usa lib/auth.ts para autorizar). */
+export async function buscarConRol(id: number) {
+  return prisma.usuario.findUnique({
+    where: { id_usuario: id },
+    select: { ...CAMPOS_PUBLICOS, rolRef: { select: { nombre: true } } },
+  });
+}

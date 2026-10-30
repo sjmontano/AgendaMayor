@@ -5,6 +5,11 @@
 //
 // Los nombres de tabla/columna se conservan en snake_case (mismo
 // contrato que consumía la API) para no romper las vistas.
+//
+// IMPORTANTE: la base en Neon es compartida con la versión completa
+// del proyecto (rama app-completa), que tiene más columnas y tablas.
+// Este esquema es un subconjunto: NO ejecutar `prisma db push` ni
+// `prisma migrate` desde esta versión (borraría esas columnas).
 // ============================================================
 
 generator client {
@@ -106,17 +111,9 @@ model Evento {
   autor_id     Int
   activo       Boolean  @default(true)
 
-  // Publicación y taquilla
-  estado              String    @default("PUBLICADO") @db.VarChar(20)
-  permite_entradas    Boolean   @default(false)
-  aforo               Int?
-  max_por_compra      Int       @default(6)
-  venta_inicio        DateTime? @db.Timestamptz(6)
-  venta_fin           DateTime? @db.Timestamptz(6)
-  politica_devolucion String?   @db.VarChar(500)
-  url_acceso_privado  String?   @db.VarChar(255)
-  motivo_cancelacion  String?   @db.VarChar(500)
-  publicado_en        DateTime? @db.Timestamptz(6)
+  // Taquilla: si el evento vende entradas y cuántas puede comprar cada persona
+  permite_entradas Boolean @default(false)
+  max_por_compra   Int     @default(6)
 
   autor        Usuario       @relation(fields: [autor_id], references: [id_usuario])
   proyectos    Proyecto[]    @relation("ProyectoOrigen")
@@ -127,7 +124,6 @@ model Evento {
 
   @@index([autor_id])
   @@index([activo])
-  @@index([estado])
   @@index([fecha_inicio])
   @@map("evento")
 }
@@ -180,18 +176,17 @@ model Puesto {
 }
 
 /// Tipo de entrada de un evento (taquilla). El precio se guarda en centavos
-/// de COP para que Stripe reciba el entero exacto en su unidad mínima.
+/// de COP (precio en pesos × 100).
 model TipoEntrada {
-  id_tipo_entrada    Int      @id @default(autoincrement())
-  evento_id          Int
-  nombre             String   @db.VarChar(80)
-  descripcion        String?  @db.VarChar(300)
-  precio_centavos    Int
-  cantidad_total     Int
-  cantidad_vendida   Int      @default(0)
-  cantidad_reservada Int      @default(0)
-  activo             Boolean  @default(true)
-  creado_en          DateTime @default(now()) @db.Timestamptz(6)
+  id_tipo_entrada  Int      @id @default(autoincrement())
+  evento_id        Int
+  nombre           String   @db.VarChar(80)
+  descripcion      String?  @db.VarChar(300)
+  precio_centavos  Int
+  cantidad_total   Int
+  cantidad_vendida Int      @default(0)
+  activo           Boolean  @default(true)
+  creado_en        DateTime @default(now()) @db.Timestamptz(6)
 
   evento   Evento      @relation(fields: [evento_id], references: [id_evento], onDelete: Cascade)
   items    OrdenItem[]
@@ -201,41 +196,34 @@ model TipoEntrada {
   @@map("tipo_entrada")
 }
 
-/// Orden de compra. `token_hash` protege el acceso público a la orden y a las
-/// entradas: el token en claro solo viaja en la URL de éxito de Stripe.
+/// Orden de compra (el "carrito" confirmado). Estados:
+/// PENDIENTE → PAGADA | RECHAZADA | EXPIRADA.
 model Orden {
-  id_orden                 Int       @id @default(autoincrement())
-  codigo                   String    @unique @db.VarChar(32)
-  token_hash               String    @db.VarChar(64)
-  evento_id                Int
-  comprador_id             Int?
-  nombre_comprador         String    @db.VarChar(100)
-  correo_comprador         String    @db.VarChar(100)
-  documento                String?   @db.VarChar(30)
-  telefono                 String?   @db.VarChar(30)
-  total_centavos           Int
-  moneda                   String    @default("COP") @db.VarChar(3)
-  estado                   String    @default("PENDIENTE") @db.VarChar(20)
-  stripe_session_id        String?   @unique @db.VarChar(255)
-  stripe_payment_intent_id String?   @db.VarChar(255)
-  metodo_pago              String?   @db.VarChar(30)
-  /// Pasarela elegida por el comprador: STRIPE | WOMPI | BOLD
-  pasarela                 String    @default("STRIPE") @db.VarChar(12)
-  /// Id externo del cobro (transacción Wompi o link Bold)
-  pasarela_referencia      String?   @db.VarChar(255)
-  ip                       String?   @db.VarChar(64)
-  expira_en                DateTime  @db.Timestamptz(6)
-  pagada_en                DateTime? @db.Timestamptz(6)
-  reembolsada_en           DateTime? @db.Timestamptz(6)
-  creada_en                DateTime  @default(now()) @db.Timestamptz(6)
-  actualizada_en           DateTime  @updatedAt @db.Timestamptz(6)
+  id_orden            Int       @id @default(autoincrement())
+  codigo              String    @unique @db.VarChar(32)
+  /// Columna heredada; en esta versión la compra exige sesión y queda vacía.
+  token_hash          String    @db.VarChar(64)
+  evento_id           Int
+  comprador_id        Int?
+  nombre_comprador    String    @db.VarChar(100)
+  correo_comprador    String    @db.VarChar(100)
+  total_centavos      Int
+  moneda              String    @default("COP") @db.VarChar(3)
+  estado              String    @default("PENDIENTE") @db.VarChar(20)
+  /// Pasarela usada. Siempre BOLD (el código la asigna al crear la orden).
+  pasarela            String    @db.VarChar(12)
+  /// Id del link de pago de Bold
+  pasarela_referencia String?   @db.VarChar(255)
+  expira_en           DateTime  @db.Timestamptz(6)
+  pagada_en           DateTime? @db.Timestamptz(6)
+  creada_en           DateTime  @default(now()) @db.Timestamptz(6)
+  actualizada_en      DateTime  @updatedAt @db.Timestamptz(6)
 
-  evento        Evento         @relation(fields: [evento_id], references: [id_evento])
-  comprador     Usuario?       @relation("OrdenComprador", fields: [comprador_id], references: [id_usuario], onDelete: SetNull)
-  items         OrdenItem[]
-  entradas      Entrada[]
-  eventosStripe StripeEvento[]
-  eventosPago   PagoEvento[]
+  evento      Evento       @relation(fields: [evento_id], references: [id_evento])
+  comprador   Usuario?     @relation("OrdenComprador", fields: [comprador_id], references: [id_usuario], onDelete: SetNull)
+  items       OrdenItem[]
+  entradas    Entrada[]
+  eventosPago PagoEvento[]
 
   @@index([evento_id])
   @@index([pasarela_referencia])
@@ -261,8 +249,8 @@ model OrdenItem {
   @@map("orden_item")
 }
 
-/// Entrada individual. El código es el contenido del QR y se valida una sola
-/// vez en la puerta (estado VALIDA → USADA) de forma atómica.
+/// Entrada individual. El código alfanumérico se valida una sola vez en la
+/// puerta (estado VALIDA → USADA) de forma atómica.
 model Entrada {
   id_entrada       Int       @id @default(autoincrement())
   codigo           String    @unique @db.VarChar(32)
@@ -290,23 +278,7 @@ model Entrada {
   @@map("entrada")
 }
 
-/// Registro idempotente de webhooks de Stripe. Evita duplicar entradas cuando
-/// Stripe reintenta un evento (hasta 3 veces en 24 h).
-model StripeEvento {
-  id_stripe_evento Int      @id @default(autoincrement())
-  stripe_event_id  String   @unique @db.VarChar(255)
-  tipo             String   @db.VarChar(80)
-  orden_id         Int?
-  payload          Json
-  recibido_en      DateTime @default(now()) @db.Timestamptz(6)
-
-  orden Orden? @relation(fields: [orden_id], references: [id_orden], onDelete: SetNull)
-
-  @@index([orden_id])
-  @@map("stripe_evento")
-}
-
-/// Notificación recibida de Wompi o Bold (idempotencia y auditoría).
+/// Notificación recibida de Bold (idempotencia y auditoría).
 model PagoEvento {
   id_pago_evento    Int      @id @default(autoincrement())
   pasarela          String   @db.VarChar(12)

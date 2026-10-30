@@ -1,37 +1,26 @@
 import { z } from "zod";
 
-export const CheckoutSchema = z.object({
-  eventoId: z.coerce.number().int().positive(),
-  tipoEntradaId: z.coerce.number().int().positive(),
-  cantidad: z.coerce.number().int().min(1).max(20),
-  nombre: z.string().trim().min(3).max(100),
-  correo: z.string().trim().email().max(100),
-  documento: z
-    .string()
-    .trim()
-    .max(30)
-    .optional()
-    .transform((v) => v || undefined),
-  telefono: z
-    .string()
-    .trim()
-    .max(30)
-    .optional()
-    .transform((v) => v || undefined),
-  /** Pasarela elegida por el comprador (Strategy en lib/integraciones/pasarelas). */
-  pasarela: z.enum(["STRIPE", "WOMPI", "BOLD"]).default("STRIPE"),
-  aceptaDatos: z.boolean().refine((v) => v === true, {
-    message: "Debes aceptar el tratamiento de datos para continuar",
-  }),
+/**
+ * DTO de la taquilla — patrón Data Transfer Object.
+ * El "carrito" es la lista de tipos de entrada con la cantidad elegida.
+ * El precio NUNCA viene del navegador: el service lo lee de la base de datos.
+ */
+export const CompraSchema = z.object({
+  eventoId: z.number().int().positive(),
+  items: z
+    .array(
+      z.object({
+        tipoEntradaId: z.number().int().positive(),
+        cantidad: z.number().int().min(1).max(10),
+      })
+    )
+    .min(1, "Elige al menos una entrada"),
 });
+
+export type CompraDTO = z.infer<typeof CompraSchema>;
 
 export const ValidarEntradaSchema = z.object({
-  codigo: z.string().trim().min(4).max(64),
+  codigo: z.string().trim().toUpperCase().min(4).max(32),
 });
 
-export const ReembolsoSchema = z.object({
-  motivo: z.string().trim().max(300).optional(),
-});
-
-export type CheckoutDTO = z.infer<typeof CheckoutSchema>;
 export type ValidarEntradaDTO = z.infer<typeof ValidarEntradaSchema>;
