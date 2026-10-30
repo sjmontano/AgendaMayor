@@ -65,7 +65,7 @@ export function Puestos({ puestos, eventos, proyectos }: Props) {
     ejecutar(() => llamarApi(`/api/puestos/${idPuesto}`, "PATCH", { accion: "asignar", proyectoId: Number(proyectoId) }));
   }
 
-  const tituloProyecto = (id: number | null) => proyectos.find((p) => p.id === id)?.titulo ?? `Proyecto #${id}`;
+  const tituloProyecto = (id: number | null) => proyectos.find((p) => p.id === id)?.titulo ?? `Proyecto no publicado (#${id})`;
 
   return (
     <div className="dos-columnas">

@@ -74,21 +74,21 @@
 
 ## 3. Cómo probar la aplicación
 
-Entrar a **https://agenda-mayor.vercel.app** → **Ingresar**.
+Entrar a **https://agenda-mayor.vercel.app** → botón **Ingresar** (arriba a la derecha) → escribir el **correo** y la **contraseña** de la tabla. Se inicia sesión con el correo, no con el nombre de usuario.
 
 Todas las cuentas de prueba usan la misma contraseña: **`Unimayor2026`**
 
-| Rol | Correo | Usuario | Facultad | Qué puede revisar |
-|---|---|---|---|---|
-| **ADMIN** | `admin@unimayor.edu.co` | admin.mayor | — | Todo: moderación de todas las facultades, puestos EAFI, importar eventos, validar entradas, crear eventos OFICIAL |
-| **DOCENTE** | `mibastidas@unimayor.edu.co` | prof.bastidas | Ingeniería | Aprobar/rechazar proyectos de Ingeniería, crear eventos EAFI, validar entradas |
-| **DOCENTE** | `docente@unimayor.edu.co` | profe.ingenieria | Ingeniería | Igual al anterior |
-| **DOCENTE** | `jiruiz@unimayor.edu.co` | prof.ruiz | Ingeniería | Igual al anterior |
-| **DOCENTE** | `cpordonez@unimayor.edu.co` | prof.ordonez | Educación | Solo revisa proyectos de Educación |
-| **ESTUDIANTE** | `smontano@unimayor.edu.co` | santiago.m | Ingeniería | Publicar proyectos, comprar entradas, notificaciones |
-| **ESTUDIANTE** | `lmmaya@unimayor.edu.co` | luisa.m | Arte y Diseño | Igual al anterior |
-| **ESTUDIANTE** | `pamunoz@unimayor.edu.co` | paula.munoz | Ingeniería | Igual al anterior |
-| **ESTUDIANTE** | `mffernandez@unimayor.edu.co` | mafe.fernandez | Ingeniería | Igual al anterior |
+| Rol | Correo (para ingresar) | Contraseña | Usuario | Facultad | Qué puede revisar |
+|---|---|---|---|---|---|
+| **ADMIN** | `admin@unimayor.edu.co` | `Unimayor2026` | admin.mayor | — | Todo: moderación de todas las facultades, puestos EAFI, importar eventos, validar entradas, crear eventos OFICIAL |
+| **DOCENTE** | `mibastidas@unimayor.edu.co` | `Unimayor2026` | prof.bastidas | Ingeniería | Aprobar/rechazar proyectos de Ingeniería, crear eventos EAFI, validar entradas |
+| **DOCENTE** | `docente@unimayor.edu.co` | `Unimayor2026` | profe.ingenieria | Ingeniería | Igual al anterior |
+| **DOCENTE** | `jiruiz@unimayor.edu.co` | `Unimayor2026` | prof.ruiz | Ingeniería | Igual al anterior |
+| **DOCENTE** | `cpordonez@unimayor.edu.co` | `Unimayor2026` | prof.ordonez | Educación | Solo revisa proyectos de Educación |
+| **ESTUDIANTE** | `smontano@unimayor.edu.co` | `Unimayor2026` | santiago.m | Ingeniería | Publicar proyectos, comprar entradas, notificaciones |
+| **ESTUDIANTE** | `lmmaya@unimayor.edu.co` | `Unimayor2026` | luisa.m | Arte y Diseño | Igual al anterior |
+| **ESTUDIANTE** | `pamunoz@unimayor.edu.co` | `Unimayor2026` | paula.munoz | Ingeniería | Igual al anterior |
+| **ESTUDIANTE** | `mffernandez@unimayor.edu.co` | `Unimayor2026` | mafe.fernandez | Ingeniería | Igual al anterior |
 
 También se puede crear una cuenta nueva en **Crear cuenta** con cualquier correo que termine en `@unimayor.edu.co` (queda con rol ESTUDIANTE).
 
@@ -119,10 +119,11 @@ Eventos que venden entradas: **"Concierto Rock en el Claustro (prueba pagos)"** 
 1. **Mi panel** → *Cola de revisión*: solo aparecen proyectos de Ingeniería.
 2. **Publicar** un proyecto o **Rechazar** indicando el motivo → el estudiante recibe la notificación.
 3. *Validar entrada*: escribir el código `ENT-…` de una entrada comprada → la primera vez es válida; la segunda dice *"Esta entrada ya fue usada"*.
-4. **Eventos** → *+ Crear evento*: puede crear EAFI (de su facultad) y COMUNIDAD, no OFICIAL.
+4. **Eventos** → *+ Crear evento*: puede crear EAFI (de su facultad) y COMUNIDAD, no OFICIAL. Si marca *Vender entradas*, define los tipos de entrada con precio y cantidad.
+5. **Mi panel** → *Ventas de mis eventos*: por cada evento suyo con entradas ve cuántas se vendieron por tipo, cuántas personas ya ingresaron y lo recaudado; con **Ver asistentes** despliega la lista (código, nombre, correo, tipo y estado).
 
 **D. Como administrador** (`admin@unimayor.edu.co`)
-1. **Mi panel**: cola de revisión de **todas** las facultades.
+1. **Mi panel**: cola de revisión de **todas** las facultades y *Ventas de entradas* de **todos** los eventos.
 2. *Puestos feria EAFI*: crear un puesto, asignarlo a un proyecto, liberarlo o eliminarlo.
 3. *Importar eventos del portal*: trae los eventos del RSS de unimayor.edu.co (no duplica títulos).
 4. Crear un evento OFICIAL con venta de entradas.
@@ -306,6 +307,7 @@ regla(datos, usuario);
 - **Webhook seguro**: se verifica la firma `x-bold-signature` y se ignoran avisos repetidos (`pago_evento`).
 - **Eventos gratuitos**: si el total es $0, la orden se confirma sin pasar por Bold.
 - **Validación en la puerta**: la entrada pasa de `VALIDA` a `USADA` una sola vez.
+- **Ventas para el organizador**: en *Mi panel* el creador del evento ve las entradas vendidas por tipo, lo recaudado (solo órdenes pagadas), cuántos ingresaron y la lista de asistentes.
 
 ---
 
@@ -323,6 +325,7 @@ regla(datos, usuario);
 | Crear evento EAFI | | | ✓ (su facultad) | ✓ |
 | Crear evento OFICIAL | | | | ✓ |
 | Comprar entradas | | ✓ | ✓ | ✓ |
+| Ver ventas y asistentes de un evento | | ✓ (sus eventos) | ✓ (sus eventos) | ✓ (todos) |
 | Validar entradas en la puerta | | | ✓ | ✓ |
 | Gestionar puestos EAFI | | | | ✓ |
 | Importar eventos del portal | | | | ✓ |
@@ -425,6 +428,7 @@ Todas las respuestas tienen la forma `{ "data": …, "error": null }` o `{ "data
 | Carrito y pedido (checkout) | `compra-entradas.tsx` → `taquilla.service.comprar` → tablas `orden` y `orden_item` |
 | Pasarela de pagos | `lib/integraciones/bold.ts` (Adapter) + `api/pagos/bold/webhook` |
 | Confirmación y notificaciones | `taquilla.service.conciliar` → entradas + `notificacion.repository.crear` |
+| Gestión de pedidos (organizador) | `ventas-evento.tsx` en *Mi panel* → `taquilla.service.ventasDeMisEventos` → `taquilla.repository.ventasPorEvento` |
 
 ---
 

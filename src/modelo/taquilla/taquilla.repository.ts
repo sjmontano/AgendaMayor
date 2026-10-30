@@ -210,3 +210,51 @@ export async function registrarPagoEvento(
     data: { pasarela: "BOLD", evento_externo_id: idExterno, tipo, orden_id: ordenId, payload },
   });
 }
+
+export interface VentasEventoRow {
+  id_evento: number;
+  titulo: string;
+  fecha_inicio: string;
+  tipos: { nombre: string; precio: number; vendidas: number; total: number }[];
+  recaudado: number; // en pesos, solo órdenes pagadas
+  entradas: { codigo: string; asistente: string; correo: string; tipo: string; estado: string }[];
+}
+
+/**
+ * Ventas de los eventos con taquilla. Si se pasa autorId, solo los eventos de ese autor
+ * (el organizador); sin autorId, todos (administrador).
+ */
+export async function ventasPorEvento(autorId?: number): Promise<VentasEventoRow[]> {
+  const eventos = await prisma.evento.findMany({
+    where: { permite_entradas: true, ...(autorId ? { autor_id: autorId } : {}) },
+    orderBy: { fecha_inicio: "desc" },
+    include: {
+      tiposEntrada: true,
+      ordenes: { where: { estado: "PAGADA" }, select: { total_centavos: true } },
+      entradas: {
+        include: { tipoEntrada: { select: { nombre: true } } },
+        orderBy: { creada_en: "desc" },
+      },
+    },
+  });
+
+  return eventos.map((e) => ({
+    id_evento: e.id_evento,
+    titulo: e.titulo,
+    fecha_inicio: e.fecha_inicio.toISOString(),
+    tipos: e.tiposEntrada.map((t) => ({
+      nombre: t.nombre,
+      precio: t.precio_centavos / 100,
+      vendidas: t.cantidad_vendida,
+      total: t.cantidad_total,
+    })),
+    recaudado: e.ordenes.reduce((suma, o) => suma + o.total_centavos, 0) / 100,
+    entradas: e.entradas.map((en) => ({
+      codigo: en.codigo,
+      asistente: en.nombre_asistente,
+      correo: en.correo_asistente,
+      tipo: en.tipoEntrada.nombre,
+      estado: en.estado,
+    })),
+  }));
+}

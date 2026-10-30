@@ -143,3 +143,8 @@ export async function validarEntrada(codigo: string, usuario: UsuarioAuth) {
     asistente: entrada.nombre_asistente,
   };
 }
+
+/** Ventas de los eventos del organizador; el administrador ve las de todos los eventos. */
+export async function ventasDeMisEventos(usuario: UsuarioAuth) {
+  return repo.ventasPorEvento(usuario.nombre_rol === "ADMIN" ? undefined : usuario.id_usuario);
+}

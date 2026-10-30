@@ -724,6 +724,15 @@ td {
   vertical-align: middle;
 }
 
+/* Botón que abre una lista desplegable (<details>) */
+summary.btn {
+  list-style: none;
+}
+
+summary.btn::-webkit-details-marker {
+  display: none;
+}
+
 /* Lista de notificaciones */
 .lista {
   list-style: none;

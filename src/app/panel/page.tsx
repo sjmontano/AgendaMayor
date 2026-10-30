@@ -5,16 +5,18 @@ import { Moderacion } from "@/components/panel/moderacion";
 import { ValidarEntrada } from "@/components/panel/validar-entrada";
 import { Puestos } from "@/components/panel/puestos";
 import { ImportarEventos } from "@/components/panel/importar-eventos";
+import { VentasEvento } from "@/components/panel/ventas-evento";
 import { usuarioActualOpcional } from "@/lib/auth";
 import { listarMios, colaDeRevision, listarPublicados } from "@/modelo/proyectos/proyecto.service";
 import { listar as listarPuestos } from "@/modelo/puestos/puesto.service";
 import { listarEafi } from "@/modelo/eventos/evento.repository";
+import { ventasDeMisEventos } from "@/modelo/taquilla/taquilla.service";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Panel según el rol:
- *  - Todos: mis proyectos.
+ *  - Todos: mis proyectos y las ventas de mis eventos con entradas.
  *  - DOCENTE y ADMIN: cola de revisión y validación de entradas.
  *  - ADMIN: puestos de la feria EAFI e importación de eventos del portal.
  */
@@ -26,6 +28,8 @@ export default async function PanelPage() {
   const esAdmin = usuario.nombre_rol === "ADMIN";
 
   const misProyectos = await listarMios(usuario.id_usuario);
+  // Ventas de los eventos que organizo (el admin ve las de todos)
+  const ventas = await ventasDeMisEventos(usuario);
   // El docente solo revisa su facultad; el admin revisa todas
   const cola = esModerador
     ? await colaDeRevision(usuario.nombre_rol === "DOCENTE" ? usuario.facultad : null)
@@ -76,8 +80,26 @@ export default async function PanelPage() {
         </div>
       </section>
 
-      {esModerador && (
+      {ventas.length > 0 && (
         <section className="seccion seccion--gris">
+          <div className="contenedor">
+            <div className="titulo-seccion">
+              <div>
+                <h2>{esAdmin ? "Ventas de entradas" : "Ventas de mis eventos"}</h2>
+                <p className="subtitulo">Entradas vendidas, lo recaudado y quiénes asistirán.</p>
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: "1.5rem" }}>
+              {ventas.map((evento) => (
+                <VentasEvento key={evento.id_evento} evento={evento} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {esModerador && (
+        <section className="seccion">
           <div className="contenedor dos-columnas">
             <div>
               <div className="titulo-seccion">
@@ -100,7 +122,7 @@ export default async function PanelPage() {
       )}
 
       {datosAdmin && (
-        <section className="seccion">
+        <section className="seccion seccion--gris">
           <div className="contenedor">
             <div className="titulo-seccion">
               <h2>Puestos feria EAFI</h2>
