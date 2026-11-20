@@ -109,8 +109,8 @@ Eventos que venden entradas: **"Concierto Rock en el Claustro (prueba pagos)"** 
 
 **B. Como estudiante** (`smontano@unimayor.edu.co`)
 1. **Mi panel** → *+ Publicar proyecto* → llenar el formulario → queda **En revisión** (llega una notificación).
-2. Abrir **Eventos** → *Concierto Rock en el Claustro* → elegir cantidad → **Pagar con Bold**.
-3. En Bold usar los datos de prueba → al volver, la página de resultado muestra **Pago aprobado**.
+2. Abrir **Eventos** → *Concierto Rock en el Claustro* → elegir cantidad → **Comprar entradas** → **Pagar en Bold** (se abre en otra pestaña).
+3. En Bold usar los datos de prueba → al volver a la pestaña de Agenda Mayor, la orden muestra **Pago aprobado** (o pulsar *Verificar pago*).
 4. **Mis entradas**: aparece la entrada con su código `ENT-…`.
 5. **Notificaciones**: aviso de la compra confirmada.
 6. Su perfil (`@santiago.m`) → *Editar mi perfil* (HU-03).
@@ -210,7 +210,7 @@ agenda-mayor/
 │   │   ├── globals.css          Hoja de estilos única
 │   │   ├── proyectos/           Vitrina, [id] detalle, nuevo
 │   │   ├── eventos/             Cartelera, [id] detalle + compra, nuevo
-│   │   ├── checkout/resultado/  Regreso desde Bold
+│   │   ├── checkout/resultado/  Estado de la orden (espera y regreso desde Bold)
 │   │   ├── mis-entradas/        Entradas compradas
 │   │   ├── panel/               Panel según el rol
 │   │   ├── perfil/[username]/   Perfil público
@@ -284,24 +284,31 @@ regla(datos, usuario);
 ## 8. Flujo de compra con Bold
 
 ```
- Usuario            Agenda Mayor                                   Bold
-    │  elige entradas   │                                             │
-    │──────────────────▶│ POST /api/checkout                          │
-    │                   │  1. valida el carrito (CompraSchema)        │
-    │                   │  2. lee precios y cupos de la BD            │
-    │                   │  3. crea Orden PENDIENTE                    │
-    │                   │  4. crearLinkDePago() ─────────────────────▶│
-    │◀──────────────────│◀──────────────── url del link de pago ──────│
-    │  paga en checkout.bold.co ─────────────────────────────────────▶│
-    │                   │◀──── webhook /api/pagos/bold/webhook ───────│
-    │◀── vuelve a /checkout/resultado?orden=ORD-…                     │
-    │                   │  5. conciliar(): consultarPago() ──────────▶│
-    │                   │     PAGADA  → genera entradas + notificación│
-    │                   │     RECHAZADA / EXPIRADA → cierra la orden  │
-    │  Mis entradas     │                                             │
+ Usuario (navegador)        Agenda Mayor (API)                          Bold
+    │ 1. "Comprar entradas"    │                                          │
+    │─────────────────────────▶│ POST /api/ordenes          → crearOrden()│
+    │                          │   valida (CompraSchema), precios de la BD│
+    │◀── ORD-XXXX (PENDIENTE) ─│   guarda orden + orden_item              │
+    │─────────────────────────▶│ POST /api/ordenes/ORD-XXXX/pago          │
+    │                          │   iniciarPago(): crearLinkDePago() ─────▶│
+    │◀── urlPago (LNK_…) ──────│◀──────────────── link de pago ───────────│
+    │ 2. "Pagar en Bold" (otra pestaña) ─────────────────────────────────▶│
+    │                          │◀──── webhook /api/pagos/bold/webhook ────│
+    │ 3. vuelve a la pestaña   │                                          │
+    │─────────────────────────▶│ GET /api/ordenes/ORD-XXXX  → conciliar() │
+    │                          │   consultarPago() ──────────────────────▶│
+    │◀── PAGADA + entradas ────│   genera entradas + notificación         │
+    │─────────────────────────▶│ GET /api/mis-entradas                    │
 ```
 
+**Ver el flujo en DevTools → Network:** abrir la app en una ventana de incógnito (sin extensiones),
+marcar *Preserve log*, filtrar por **Fetch/XHR** y escribir `/api/` en el filtro. La compra se ve como
+`ordenes` → `pago` → `ORD-XXXX` → `mis-entradas`; en cada fila, la pestaña *Payload*
+muestra lo que envía el navegador y *Response* lo que responde el servidor. Bold se abre en otra
+pestaña, así su tráfico no se mezcla con el de la app.
+
 - **El precio nunca viene del navegador**: el service lo lee de la base de datos.
+- **Una orden = un link de Bold**: `iniciarPago()` rechaza crear un segundo link para la misma orden.
 - **Estados de la orden**: `PENDIENTE → PAGADA | RECHAZADA | EXPIRADA` (30 minutos para pagar).
 - **Doble aviso**: el webhook y la página de resultado pueden llegar a la vez; la orden solo pasa a PAGADA una vez (actualización condicionada a `estado = PENDIENTE` dentro de una transacción).
 - **Webhook seguro**: se verifica la firma `x-bold-signature` y se ignoran avisos repetidos (`pago_evento`).
@@ -388,8 +395,9 @@ Todas las respuestas tienen la forma `{ "data": …, "error": null }` o `{ "data
 | POST | `/api/admin/importar-eventos` | Importar eventos del RSS | Admin |
 | GET / POST | `/api/puestos` | Listar / crear puestos | Público / Admin |
 | GET / PATCH / DELETE | `/api/puestos/[id]` | Detalle / asignar o liberar / eliminar | Admin |
-| POST | `/api/checkout` | Crear orden y link de pago Bold | Con sesión |
-| GET | `/api/ordenes/[codigo]` | Estado de mi orden | Comprador |
+| POST | `/api/ordenes` | Paso 1: crear orden PENDIENTE con el carrito | Con sesión |
+| POST | `/api/ordenes/[codigo]/pago` | Paso 2: crear link de pago Bold | Comprador |
+| GET | `/api/ordenes/[codigo]` | Estado de mi orden (concilia con Bold) | Comprador |
 | POST | `/api/pagos/bold/webhook` | Aviso de pago de Bold | Bold (firma) |
 | GET | `/api/mis-entradas` | Mis entradas | Con sesión |
 | POST | `/api/entradas/validar` | Validar entrada en la puerta | Docente, Admin |
@@ -425,7 +433,7 @@ Todas las respuestas tienen la forma `{ "data": …, "error": null }` o `{ "data
 |---|---|
 | Usuarios y seguridad (RBAC) | `lib/auth.ts` (`requiereRol`, `puedeAvalar`), roles en tabla `rol` |
 | Catálogo de productos/servicios | Eventos con tipos de entrada: `evento.repository.buscarDetalle` |
-| Carrito y pedido (checkout) | `compra-entradas.tsx` → `taquilla.service.comprar` → tablas `orden` y `orden_item` |
+| Carrito y pedido (checkout) | `compra-entradas.tsx` → `api/ordenes` (`crearOrden`) → tablas `orden` y `orden_item` |
 | Pasarela de pagos | `lib/integraciones/bold.ts` (Adapter) + `api/pagos/bold/webhook` |
 | Confirmación y notificaciones | `taquilla.service.conciliar` → entradas + `notificacion.repository.crear` |
 | Gestión de pedidos (organizador) | `ventas-evento.tsx` en *Mi panel* → `taquilla.service.ventasDeMisEventos` → `taquilla.repository.ventasPorEvento` |

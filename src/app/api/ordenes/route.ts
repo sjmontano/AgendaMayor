@@ -2,17 +2,17 @@ import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/errors";
 import { usuarioActual } from "@/lib/auth";
 import { CompraSchema } from "@/modelo/taquilla/taquilla.dto";
-import { comprar } from "@/modelo/taquilla/taquilla.service";
+import { crearOrden } from "@/modelo/taquilla/taquilla.service";
 
 /**
- * POST /api/checkout — Crea la orden con el carrito y retorna la URL de pago de Bold.
+ * POST /api/ordenes — Paso 1 de la compra: crea la orden PENDIENTE con el carrito.
  * Body: { eventoId, items: [{ tipoEntradaId, cantidad }] }
  */
 export async function POST(request: NextRequest) {
   try {
     const usuario = await usuarioActual();
     const datos = CompraSchema.parse(await request.json());
-    return ok(await comprar(datos, usuario, request.nextUrl.origin), 201);
+    return ok(await crearOrden(datos, usuario), 201);
   } catch (e) {
     return err(e);
   }

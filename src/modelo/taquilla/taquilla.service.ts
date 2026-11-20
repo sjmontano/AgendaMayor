@@ -10,13 +10,14 @@ import type { CompraDTO } from "./taquilla.dto";
 /**
  * Service de la taquilla (carrito → orden → pago con Bold → entradas).
  *
- * Flujo:
- *  1. comprar(): valida el carrito, calcula el total con los precios de la BD,
- *     crea la orden PENDIENTE y pide a Bold un link de pago.
- *  2. El comprador paga en la página de Bold y vuelve a /checkout/resultado.
- *  3. conciliar(): pregunta a Bold el estado del pago. Si está pagado,
- *     la orden pasa a PAGADA y se generan las entradas con su código.
- *     El webhook de Bold también llama a conciliar() (lo que llegue primero).
+ * Flujo (cada paso es una petición distinta a la API):
+ *  1. crearOrden()  POST /api/ordenes: valida el carrito, calcula el total con los
+ *                   precios de la BD y guarda la orden PENDIENTE con sus ítems.
+ *  2. iniciarPago() POST /api/ordenes/[codigo]/pago: pide a Bold un link de pago.
+ *  3. El comprador paga en la página de Bold (en otra pestaña).
+ *  4. conciliar()   GET /api/ordenes/[codigo]: pregunta a Bold el estado del pago.
+ *                   Si está pagado, la orden pasa a PAGADA y se generan las entradas.
+ *                   El webhook de Bold también llama a conciliar() (lo que llegue primero).
  */
 const MINUTOS_PARA_PAGAR = 30;
 
@@ -30,7 +31,12 @@ function urlDelSitio(origenPeticion: string) {
   return process.env.NEXT_PUBLIC_SITE_URL ?? origenPeticion;
 }
 
-export async function comprar(datos: CompraDTO, usuario: UsuarioAuth, origenPeticion: string) {
+/**
+ * Paso 1 — Orden: revisa el carrito contra la BD (evento, cupo y máximo por compra)
+ * y guarda la orden PENDIENTE. Los precios se leen de la BD, nunca del navegador.
+ * Si es gratis queda PAGADA de una vez.
+ */
+export async function crearOrden(datos: CompraDTO, usuario: UsuarioAuth) {
   const evento = await eventos.buscarDetalle(datos.eventoId);
   if (!evento || !evento.permite_entradas) throw notFound("Este evento no vende entradas");
   if (new Date(evento.fecha_fin) < new Date()) throw badRequest("El evento ya terminó");
@@ -40,7 +46,6 @@ export async function comprar(datos: CompraDTO, usuario: UsuarioAuth, origenPeti
     throw badRequest(`Puedes comprar máximo ${evento.max_por_compra} entradas por orden`);
   }
 
-  // Los precios y la disponibilidad se leen de la BD, nunca del navegador
   const tipos = await repo.tiposDeEvento(evento.id_evento);
   const items = datos.items.map((item) => {
     const tipo = tipos.find((t) => t.id_tipo_entrada === item.tipoEntradaId);
@@ -66,24 +71,40 @@ export async function comprar(datos: CompraDTO, usuario: UsuarioAuth, origenPeti
     expira_en: new Date(Date.now() + MINUTOS_PARA_PAGAR * 60_000),
     items,
   });
-  const urlResultado = `${urlDelSitio(origenPeticion)}/checkout/resultado?orden=${orden.codigo}`;
 
   // Evento gratuito: no pasa por Bold, se confirma de una vez
   if (totalCentavos === 0) {
     await confirmar(orden);
-    return { urlPago: urlResultado };
+    return (await repo.buscarOrdenPorCodigo(orden.codigo))!;
+  }
+  return orden;
+}
+
+/** Paso 2 — Pago: pide a Bold el link de pago de una orden PENDIENTE. */
+export async function iniciarPago(codigo: string, usuario: UsuarioAuth, origenPeticion: string) {
+  const orden = await repo.buscarOrdenPorCodigo(codigo);
+  if (!orden) throw notFound("Orden no encontrada");
+  if (orden.comprador_id !== usuario.id_usuario) throw forbidden("Esta orden no es tuya");
+  if (orden.estado !== "PENDIENTE") throw conflict("Esta orden ya no está pendiente de pago");
+  // Una orden = un solo link de Bold, así no se puede pagar dos veces
+  if (orden.pasarela_referencia) throw conflict("Esta orden ya tiene un link de pago");
+
+  const minutosRestantes = Math.ceil((new Date(orden.expira_en).getTime() - Date.now()) / 60_000);
+  if (minutosRestantes <= 0) {
+    await repo.cerrarOrden(orden.id_orden, "EXPIRADA");
+    throw conflict("El tiempo para pagar esta orden terminó");
   }
 
   const link = await crearLinkDePago({
     referencia: orden.codigo,
-    totalPesos: totalCentavos / 100,
-    descripcion: `Agenda Mayor · ${evento.titulo}`,
+    totalPesos: orden.total,
+    descripcion: `Agenda Mayor · ${orden.evento.titulo}`,
     correo: usuario.correo,
-    urlRetorno: urlResultado,
-    minutosVigencia: MINUTOS_PARA_PAGAR,
+    urlRetorno: `${urlDelSitio(origenPeticion)}/checkout/resultado?orden=${orden.codigo}`,
+    minutosVigencia: minutosRestantes,
   });
   await repo.guardarReferenciaDePago(orden.id_orden, link.idLink);
-  return { urlPago: link.url };
+  return { codigo: orden.codigo, idLink: link.idLink, urlPago: link.url };
 }
 
 /** Pregunta a Bold por el pago de una orden PENDIENTE y actualiza su estado. */

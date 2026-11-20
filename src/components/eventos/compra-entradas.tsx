@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { llamarApi } from "@/lib/api";
 import { formatearPrecio } from "@/lib/formato";
 
@@ -19,11 +20,15 @@ interface Props {
 
 /**
  * Carrito de entradas: el usuario elige cuántas quiere de cada tipo.
- * Al confirmar, la API crea la orden y devuelve el link de pago de Bold.
+ *  1. "Comprar entradas" → POST /api/ordenes                (se guarda la orden PENDIENTE)
+ *                        → POST /api/ordenes/[codigo]/pago  (Bold entrega el link de pago)
+ *  2. "Pagar en Bold"    → abre Bold en otra pestaña y esta pestaña va a /checkout/resultado
  */
 export function CompraEntradas({ eventoId, maxPorCompra, tipos }: Props) {
+  const router = useRouter();
   // cantidades[idTipo] = cantidad elegida
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
+  const [pago, setPago] = useState<{ codigo: string; urlPago: string } | null>(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -34,20 +39,58 @@ export function CompraEntradas({ eventoId, maxPorCompra, tipos }: Props) {
     setCantidades({ ...cantidades, [idTipo]: Math.max(0, valor) });
   }
 
-  async function comprar() {
+  /** Lo que se envía a la API: solo ids y cantidades, nunca precios. */
+  function datosCompra() {
+    const items = tipos
+      .filter((t) => (cantidades[t.id_tipo_entrada] ?? 0) > 0)
+      .map((t) => ({ tipoEntradaId: t.id_tipo_entrada, cantidad: cantidades[t.id_tipo_entrada] }));
+    return { eventoId, items };
+  }
+
+  async function ejecutar(accion: () => Promise<void>) {
     setCargando(true);
     setError("");
     try {
-      const items = tipos
-        .filter((t) => (cantidades[t.id_tipo_entrada] ?? 0) > 0)
-        .map((t) => ({ tipoEntradaId: t.id_tipo_entrada, cantidad: cantidades[t.id_tipo_entrada] }));
-
-      const { urlPago } = await llamarApi<{ urlPago: string }>("/api/checkout", "POST", { eventoId, items });
-      window.location.href = urlPago; // vamos a la página de pago de Bold
+      await accion();
     } catch (e) {
       setError((e as Error).message);
-      setCargando(false);
     }
+    setCargando(false);
+  }
+
+  // Paso 1: se crea la orden y se pide a Bold el link de pago
+  const comprar = () =>
+    ejecutar(async () => {
+      const orden = await llamarApi<{ codigo: string; estado: string }>("/api/ordenes", "POST", datosCompra());
+      if (orden.estado === "PAGADA") {
+        // Evento gratuito: la orden ya quedó confirmada, no pasa por Bold
+        router.push(`/checkout/resultado?orden=${orden.codigo}`);
+        return;
+      }
+      setPago(await llamarApi<{ codigo: string; urlPago: string }>(`/api/ordenes/${orden.codigo}/pago`, "POST"));
+    });
+
+  // Paso 2: el pago se hace en otra pestaña; esta pestaña espera el resultado
+  if (pago) {
+    return (
+      <div>
+        <p className="alerta alerta--info">
+          Orden <strong>{pago.codigo}</strong> creada. Tienes 30 minutos para pagar.
+        </p>
+        <a
+          className="btn btn-dorado btn-bloque"
+          href={pago.urlPago}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => router.push(`/checkout/resultado?orden=${pago.codigo}`)}
+        >
+          Pagar en Bold
+        </a>
+        <p className="subtitulo" style={{ fontSize: "0.8rem", marginTop: "0.75rem" }}>
+          Bold se abre en otra pestaña (tarjeta, PSE, Nequi o Bancolombia). Al terminar, vuelve a esta pestaña.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -93,11 +136,8 @@ export function CompraEntradas({ eventoId, maxPorCompra, tipos }: Props) {
           ? "Procesando…"
           : totalEntradas > 0 && totalPesos === 0
             ? "Reservar entradas gratis"
-            : "Pagar con Bold"}
+            : "Comprar entradas"}
       </button>
-      <p className="subtitulo" style={{ fontSize: "0.8rem", marginTop: "0.75rem" }}>
-        El pago se hace en la página segura de Bold (tarjeta, PSE, Nequi o Bancolombia).
-      </p>
     </div>
   );
 }
