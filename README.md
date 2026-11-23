@@ -15,7 +15,7 @@
 
 **Aplicación en línea: https://agenda-mayor.vercel.app**
 
-**Documentación de arquitectura:** [Modelo C4 y despliegue](#17-documentación-de-arquitectura-modelo-c4-y-despliegue) · [Documento C4 (Word)](docs/DOCUMENTACION_C4.docx) · [Patrones de diseño](docs/patrones-de-diseno.md) · [Historias de usuario (PDF)](docs/historias-de-usuario/Historias_Usuario_AgendaMayor.pdf)
+**Documentación de arquitectura:** [Modelo C4 y despliegue](#17-documentación-de-arquitectura-modelo-c4-y-despliegue) · [Documento C4 (PDF)](docs/DOCUMENTACION_C4.pdf) · [Patrones de diseño](docs/patrones-de-diseno.md) · [Historias de usuario (PDF)](docs/historias-de-usuario/Historias_Usuario_AgendaMayor.pdf)
 
 </div>
 
@@ -523,7 +523,7 @@ npm run dev
 
 ## 17. Documentación de arquitectura: Modelo C4 y despliegue
 
-Diagramas elaborados en draw.io a partir del código de este repositorio. Cada imagen tiene su archivo fuente `.drawio` en [`docs/arquitectura/`](docs/arquitectura/). La explicación completa de cada nivel (elementos, relaciones, flujos, decisiones y atributos de calidad) está en [`docs/DOCUMENTACION_C4.docx`](docs/DOCUMENTACION_C4.docx).
+Diagramas elaborados en draw.io a partir del código de este repositorio. Cada imagen tiene su archivo fuente `.drawio` en [`docs/arquitectura/`](docs/arquitectura/). La explicación completa de cada nivel (elementos, relaciones, flujos, decisiones y atributos de calidad) está en [`docs/DOCUMENTACION_C4.pdf`](docs/DOCUMENTACION_C4.pdf) (versión editable: [`.docx`](docs/DOCUMENTACION_C4.docx)).
 
 ### 17.1 Nivel 1 — Contexto
 
