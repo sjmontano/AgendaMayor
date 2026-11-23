@@ -15,6 +15,8 @@
 
 **Aplicación en línea: https://agenda-mayor.vercel.app**
 
+**Documentación de arquitectura:** [Modelo C4 y despliegue](#17-documentación-de-arquitectura-modelo-c4-y-despliegue) · [Documento C4 (Word)](docs/DOCUMENTACION_C4.docx) · [Patrones de diseño](docs/patrones-de-diseno.md) · [Historias de usuario (PDF)](docs/historias-de-usuario/Historias_Usuario_AgendaMayor.pdf)
+
 </div>
 
 ---
@@ -37,6 +39,7 @@
 14. [Decisiones de diseño](#14-decisiones-de-diseño)
 15. [Instalación local](#15-instalación-local)
 16. [Despliegue](#16-despliegue)
+17. [Documentación de arquitectura: Modelo C4 y despliegue](#17-documentación-de-arquitectura-modelo-c4-y-despliegue)
 
 ---
 
@@ -409,6 +412,8 @@ Todas las respuestas tienen la forma `{ "data": …, "error": null }` o `{ "data
 
 ## 12. Historias de usuario y trazabilidad
 
+Las 15 historias de usuario completas (con criterios de aceptación) están en [docs/historias-de-usuario/Historias_Usuario_AgendaMayor.pdf](docs/historias-de-usuario/Historias_Usuario_AgendaMayor.pdf). Esta tabla muestra dónde se implementa cada una.
+
 | HU | Historia | Dónde se implementa |
 |---|---|---|
 | HU-01 | Registrarse con correo institucional | `registro-form.tsx` → `api/usuarios/registro` → `usuario.service.registrar` (`RegistroSchema` exige `@unimayor.edu.co`) |
@@ -513,6 +518,44 @@ npm run dev
 - **Producción:** https://agenda-mayor.vercel.app — Vercel despliega automáticamente cada cambio en la rama `main` (`npm run build`).
 - **Base de datos:** PostgreSQL en Neon.
 - **Webhook de Bold:** se configura en el panel de Bold hacia `https://agenda-mayor.vercel.app/api/pagos/bold/webhook`. Si el webhook no llega, la página de resultado igual consulta el estado del pago directamente a Bold.
+
+---
+
+## 17. Documentación de arquitectura: Modelo C4 y despliegue
+
+Diagramas elaborados en draw.io a partir del código de este repositorio. Cada imagen tiene su archivo fuente `.drawio` en [`docs/arquitectura/`](docs/arquitectura/). La explicación completa de cada nivel (elementos, relaciones, flujos, decisiones y atributos de calidad) está en [`docs/DOCUMENTACION_C4.docx`](docs/DOCUMENTACION_C4.docx).
+
+### 17.1 Nivel 1 — Contexto
+
+Quién usa Agenda Mayor (visitante, estudiante, docente y administrador) y con qué sistemas externos se comunica: **Bold** (pagos) y el **Portal UNIMAYOR** (RSS de eventos). El pago ocurre en el checkout de Bold, así que la aplicación nunca recibe datos de tarjeta.
+
+![Diagrama de contexto](docs/arquitectura/01-contexto.png)
+
+### 17.2 Nivel 2 — Contenedores
+
+Las piezas que se ejecutan: la **aplicación web** (React 19 en el navegador), la **aplicación Next.js** (páginas en servidor + API REST `/api/*`, en Vercel) y la **base de datos** PostgreSQL en Neon. Toda integración externa se hace desde el servidor.
+
+![Diagrama de contenedores](docs/arquitectura/02-contenedores.png)
+
+### 17.3 Nivel 3 — Componentes (diagrama de componentes)
+
+Organización interna del contenedor Next.js en capas **MVC**: Vista (páginas), Controlador (route handlers), Modelo (services, repositories y DTO por módulo) y, debajo, acceso a datos (Singleton), lector RSS y adaptador de Bold (Adapter).
+
+![Diagrama de componentes](docs/arquitectura/03-componentes.png)
+
+### 17.4 Nivel 4 — Código (componente Taquilla)
+
+El componente más crítico: compra y pago de entradas. El primer diagrama muestra el flujo entre rutas, service, adaptador de Bold y repositories; el segundo, en notación de clases UML, sus datos (atributos) y funciones (métodos) reales.
+
+![Diagrama de código de la Taquilla](docs/arquitectura/04-codigo-taquilla.png)
+
+![Diagrama de código UML de la Taquilla](docs/arquitectura/05-codigo-taquilla-uml.png)
+
+### 17.5 Diagrama de despliegue
+
+Dónde se ejecuta cada artefacto: el navegador del usuario, Vercel en la región iad1 (red Edge y funciones Node.js con Next.js 16 standalone), PostgreSQL gestionado en Neon y los servicios externos, con el protocolo y el puerto de cada comunicación.
+
+![Diagrama de despliegue](docs/arquitectura/06-despliegue.png)
 
 ---
 
